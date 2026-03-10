@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 GARCH Live Dashboard Updater v3
@@ -53,6 +54,30 @@ MARKETS = {
         "alpha":   "EURUSD",
         "tv":      "https://www.tradingview.com/chart/?symbol=EURUSD",
         "session": "EU", "flag": "eu"
+    },
+    "Nikkei 225": {
+        "yahoo":   "^N225",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=NKY",
+        "session": "JAPAN", "flag": "jp"
+    },
+    "ASX 200": {
+        "yahoo":   "^AXJO",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=ASX:XJO",
+        "session": "AUS", "flag": "au"
+    },
+    "Shanghai": {
+        "yahoo":   "000001.SS",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=SSE:000001",
+        "session": "CHINA", "flag": "cn"
+    },
+    "China A50": {
+        "yahoo":   "^FTXIN9",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=ICEEUR:CN1!",
+        "session": "CHINA", "flag": "cn"
     },
 }
 
