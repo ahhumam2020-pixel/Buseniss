@@ -1,2 +1,1 @@
-# Buseniss
-Analyse
+garch_launcher.py
