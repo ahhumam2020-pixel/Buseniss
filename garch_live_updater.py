@@ -72,11 +72,11 @@ MARKETS = {
         "tv":      "https://www.tradingview.com/chart/?symbol=SSE:000001",
         "session": "CHINA", "flag": "cn"
     },
-    "China A50": {
-        "yahoo":   "CN=F",
+    "KOSPI": {
+        "yahoo":   "^KS11",
         "alpha":   None,
-        "tv":      "https://www.tradingview.com/chart/?symbol=ICEEUR:CN1!",
-        "session": "CHINA", "flag": "cn"
+        "tv":      "https://www.tradingview.com/chart/?symbol=KRX:KOSPI",
+        "session": "KOREA", "flag": "kr"
     },
 }
 
