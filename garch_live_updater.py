@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 GARCH Live Dashboard Updater v3
@@ -74,7 +73,7 @@ MARKETS = {
         "session": "CHINA", "flag": "cn"
     },
     "China A50": {
-        "yahoo":   "^FTXIN9",
+        "yahoo":   "XIN9.F",
         "alpha":   None,
         "tv":      "https://www.tradingview.com/chart/?symbol=ICEEUR:CN1!",
         "session": "CHINA", "flag": "cn"
