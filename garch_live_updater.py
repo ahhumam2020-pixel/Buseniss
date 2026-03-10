@@ -73,7 +73,7 @@ MARKETS = {
         "session": "CHINA", "flag": "cn"
     },
     "China A50": {
-        "yahoo":   "XIN9.F",
+        "yahoo":   "CN=F",
         "alpha":   None,
         "tv":      "https://www.tradingview.com/chart/?symbol=ICEEUR:CN1!",
         "session": "CHINA", "flag": "cn"
