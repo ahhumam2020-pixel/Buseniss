@@ -78,6 +78,49 @@ MARKETS = {
         "tv":      "https://www.tradingview.com/chart/?symbol=KRX:KOSPI",
         "session": "KOREA", "flag": "kr"
     },
+    # ─── ارزهای دیجیتال ───
+    "Bitcoin": {
+        "yahoo":   "BTC-USD",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT",
+        "session": "CRYPTO", "flag": "btc", "type": "crypto"
+    },
+    "Ethereum": {
+        "yahoo":   "ETH-USD",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=BINANCE:ETHUSDT",
+        "session": "CRYPTO", "flag": "eth", "type": "crypto"
+    },
+    "Solana": {
+        "yahoo":   "SOL-USD",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=BINANCE:SOLUSDT",
+        "session": "CRYPTO", "flag": "sol", "type": "crypto"
+    },
+    "XRP": {
+        "yahoo":   "XRP-USD",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=BINANCE:XRPUSDT",
+        "session": "CRYPTO", "flag": "xrp", "type": "crypto"
+    },
+    "Dogecoin": {
+        "yahoo":   "DOGE-USD",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=BINANCE:DOGEUSDT",
+        "session": "CRYPTO", "flag": "doge", "type": "crypto"
+    },
+    "Chainlink": {
+        "yahoo":   "LINK-USD",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=BINANCE:LINKUSDT",
+        "session": "CRYPTO", "flag": "link", "type": "crypto"
+    },
+    "Avalanche": {
+        "yahoo":   "AVAX-USD",
+        "alpha":   None,
+        "tv":      "https://www.tradingview.com/chart/?symbol=BINANCE:AVAXUSDT",
+        "session": "CRYPTO", "flag": "avax", "type": "crypto"
+    },
 }
 
 # ─────────────────────────────────────────────
@@ -194,20 +237,135 @@ def fit_garch(series):
         print(f"       GARCH خطا: {e}")
         return None
 
-def get_signal(garch, cur, prev):
+def calc_atr(series, period=14):
+    """محاسبه ATR برای تعیین Stop Loss منطقی"""
+    try:
+        s = pd.Series(series.values, dtype=float)
+        high = s.rolling(2).max()
+        low  = s.rolling(2).min()
+        tr   = high - low
+        atr  = tr.rolling(period).mean().iloc[-1]
+        return round(float(atr), 6) if not np.isnan(atr) else None
+    except:
+        return None
+
+def calc_support_resistance(series, window=20):
+    """شناسایی سطوح حمایت و مقاومت کلیدی"""
+    try:
+        s = pd.Series(series.values, dtype=float)
+        recent = s.tail(window)
+        support    = round(float(recent.min()), 6)
+        resistance = round(float(recent.max()), 6)
+        pivot      = round(float((recent.max() + recent.min() + recent.iloc[-1]) / 3), 6)
+        return {"support": support, "resistance": resistance, "pivot": pivot}
+    except:
+        return None
+
+def calc_order_blocks(series, window=5):
+    """شناسایی Order Block های صعودی و نزولی"""
+    try:
+        s = pd.Series(series.values, dtype=float)
+        recent = s.tail(20)
+        # Bullish OB: آخرین کف قوی قبل از حرکت صعودی
+        bull_ob = round(float(recent.nsmallest(3).mean()), 6)
+        # Bearish OB: آخرین سقف قوی قبل از حرکت نزولی
+        bear_ob = round(float(recent.nlargest(3).mean()), 6)
+        return {"bullish_ob": bull_ob, "bearish_ob": bear_ob}
+    except:
+        return None
+
+def calc_fvg(series):
+    """شناسایی Fair Value Gap"""
+    try:
+        s = pd.Series(series.values, dtype=float)
+        recent = s.tail(10)
+        gaps = []
+        for i in range(1, len(recent)-1):
+            gap = abs(recent.iloc[i+1] - recent.iloc[i-1])
+            gap_pct = gap / recent.iloc[i] * 100
+            if gap_pct > 0.5:
+                gaps.append({
+                    "level": round(float((recent.iloc[i+1] + recent.iloc[i-1]) / 2), 6),
+                    "size_pct": round(gap_pct, 3)
+                })
+        return gaps[-1] if gaps else None
+    except:
+        return None
+
+def get_signal(garch, cur, prev, series=None):
     if garch is None:
-        return {"direction":"NEUTRAL","entry":cur,"tp":cur,"sl":cur,"confidence":50,"rr":1}
+        return {"direction":"NEUTRAL","entry":cur,"tp":cur,"sl":cur,
+                "confidence":50,"rr":1,"atr":None,"sr":None,"ob":None,"fvg":None}
+    
     fvol = garch["forecast_vol"]
     mom  = (cur - prev) / prev * 100 if prev else 0
+    
+    # ATR برای Stop Loss دقیق‌تر
+    atr = calc_atr(series) if series is not None else None
+    sr  = calc_support_resistance(series) if series is not None else None
+    ob  = calc_order_blocks(series) if series is not None else None
+    fvg = calc_fvg(series) if series is not None else None
+    
+    # تعیین جهت
     if mom > 0.05:
-        d="LONG";  tp=round(cur*(1+fvol/100*1.5),4); sl=round(cur*(1-fvol/100),4)
+        d = "LONG"
+        # Entry: نزدیک به Bullish Order Block یا سطح حمایت
+        if ob and sr:
+            entry = round(max(ob["bullish_ob"], sr["support"] * 1.001), 6)
+        else:
+            entry = round(cur, 6)
+        # SL: زیر Order Block یا بر اساس ATR
+        if atr and ob:
+            sl = round(min(ob["bullish_ob"] - atr, cur * (1 - fvol/100)), 6)
+        elif sr:
+            sl = round(sr["support"] * 0.998, 6)
+        else:
+            sl = round(cur * (1 - fvol/100), 6)
+        # TP: نزدیک به Bearish OB یا مقاومت
+        if ob and sr:
+            tp = round(min(ob["bearish_ob"], sr["resistance"] * 0.999), 6)
+        else:
+            tp = round(cur * (1 + fvol/100 * 2), 6)
     elif mom < -0.05:
-        d="SHORT"; tp=round(cur*(1-fvol/100*1.5),4); sl=round(cur*(1+fvol/100),4)
+        d = "SHORT"
+        if ob and sr:
+            entry = round(min(ob["bearish_ob"], sr["resistance"] * 0.999), 6)
+        else:
+            entry = round(cur, 6)
+        if atr and ob:
+            sl = round(max(ob["bearish_ob"] + atr, cur * (1 + fvol/100)), 6)
+        elif sr:
+            sl = round(sr["resistance"] * 1.002, 6)
+        else:
+            sl = round(cur * (1 + fvol/100), 6)
+        if ob and sr:
+            tp = round(max(ob["bullish_ob"], sr["support"] * 1.001), 6)
+        else:
+            tp = round(cur * (1 - fvol/100 * 2), 6)
     else:
-        d="NEUTRAL"; tp=round(cur*1.005,4); sl=round(cur*0.995,4)
-    conf = min(90, int(70+(0.99-garch["persistence"])*100))
-    rr   = round(abs(tp-cur)/abs(sl-cur), 2) if abs(sl-cur)>0 else 1
-    return {"direction":d,"entry":round(cur,4),"tp":tp,"sl":sl,"confidence":conf,"rr":rr}
+        d = "NEUTRAL"
+        entry = round(cur, 6)
+        tp    = round(cur * 1.005, 6)
+        sl    = round(cur * 0.995, 6)
+    
+    # اطمینان از معقول بودن SL و TP
+    if d == "LONG" and sl >= entry:
+        sl = round(entry * 0.995, 6)
+    if d == "LONG" and tp <= entry:
+        tp = round(entry * 1.01, 6)
+    if d == "SHORT" and sl <= entry:
+        sl = round(entry * 1.005, 6)
+    if d == "SHORT" and tp >= entry:
+        tp = round(entry * 0.99, 6)
+    
+    conf = min(90, int(70 + (0.99 - garch["persistence"]) * 100))
+    rr   = round(abs(tp-entry)/abs(sl-entry), 2) if abs(sl-entry) > 0 else 1
+    
+    return {
+        "direction": d, "entry": entry, "tp": tp, "sl": sl,
+        "confidence": conf, "rr": rr,
+        "atr": atr, "sr": sr, "ob": ob, "fvg": fvg
+    }
 
 # ─────────────────────────────────────────────
 # تحلیل همه بازارها
@@ -226,7 +384,7 @@ def analyze_all():
         prev = float(series.iloc[-2]) if len(series)>1 else cur
         chg  = round((cur-prev)/prev*100, 4) if prev else 0
         g    = fit_garch(series)
-        sig  = get_signal(g, cur, prev)
+        sig  = get_signal(g, cur, prev, series)
 
         # مقایسه منابع
         comparison = {}
@@ -239,6 +397,7 @@ def analyze_all():
             "price": round(cur,4),  "change_pct": chg,
             "direction_up": chg>=0, "source": source,
             "comparison": comparison,
+            "type": info.get("type", "market"),
             "garch": g, "signal": sig,
         }
         vol_str = f"{g['cond_vol']}%" if g else "N/A"
@@ -286,62 +445,103 @@ def build_html(results):
     stab    = gv(audjpy,"stability","STABLE")
     sc      = {"STABLE":"#00ff88","MODERATE":"#ffa500","EXPLOSIVE":"#ff4444"}.get(stab,"#00ff88")
 
-    # سیگنال‌ها
-    signals_html = ""
-    for name, r in results.items():
+    # سیگنال‌ها — بازارها و کریپتو جداگانه
+    def make_signal_card(name, r):
         sig = r.get("signal")
-        if not sig: continue
+        if not sig: return ""
         d  = sig["direction"]
         bg = "#00ff88" if d=="LONG" else ("#ff4444" if d=="SHORT" else "#888")
         arrow_s = "↑" if d=="LONG" else ("↓" if d=="SHORT" else "→")
         tv_url  = r.get("tv_url","#")
         src     = r.get("source","Yahoo Finance")
         src_color = "#4da6ff" if src=="Alpha Vantage" else "#00cc66"
-
-        # مقایسه قیمت منابع
+        is_crypto = r.get("type") == "crypto"
+        border_color = "#f7931a44" if is_crypto else "#1e2d45"
+        
         comp = r.get("comparison",{})
-        comp_html = ""
-        for s, p in comp.items():
-            c = "#4da6ff" if s=="Alpha Vantage" else "#00cc66"
-            comp_html += f'<span style="color:{c};font-size:10px">{s}: {p}</span> '
-
-        signals_html += f"""
-        <div class="scard">
+        comp_html = "".join([f'<span style="color:{"#4da6ff" if s=="Alpha Vantage" else "#00cc66"};font-size:10px">{s}: {p}</span> ' for s,p in comp.items()])
+        
+        # ATR و سطوح پیشرفته
+        atr  = sig.get("atr")
+        sr   = sig.get("sr")
+        ob   = sig.get("ob")
+        fvg  = sig.get("fvg")
+        
+        adv_html = ""
+        if sr:
+            adv_html += f'<div class="adv-row"><span class="adv-label">حمایت</span><span class="adv-val" style="color:#00ff8888">{sr["support"]}</span><span class="adv-label">مقاومت</span><span class="adv-val" style="color:#ff444488">{sr["resistance"]}</span><span class="adv-label">Pivot</span><span class="adv-val" style="color:#ffa50088">{sr["pivot"]}</span></div>'
+        if ob:
+            adv_html += f'<div class="adv-row"><span class="adv-label">Bullish OB</span><span class="adv-val" style="color:#00ff8866">{ob["bullish_ob"]}</span><span class="adv-label">Bearish OB</span><span class="adv-val" style="color:#ff444466">{ob["bearish_ob"]}</span>{f'<span class="adv-label">ATR</span><span class="adv-val" style="color:#ffa500">{atr}</span>' if atr else ""}</div>'
+        if fvg:
+            adv_html += f'<div class="adv-row"><span class="adv-label">FVG Level</span><span class="adv-val" style="color:#a0a0ff">{fvg["level"]}</span><span class="adv-label">Gap</span><span class="adv-val" style="color:#a0a0ff">{fvg["size_pct"]}%</span></div>'
+        
+        crypto_badge = '<span style="background:#f7931a22;color:#f7931a;border:1px solid #f7931a44;padding:2px 6px;border-radius:3px;font-size:9px">CRYPTO</span>' if is_crypto else ""
+        
+        return f"""
+        <div class="scard" style="border-color:{border_color}">
           <div class="sh">
             <span class="sbadge" style="background:{bg}22;color:{bg};border:1px solid {bg}44">{arrow_s} {d}</span>
-            <span class="smkt"><span class="fl">{r.get("flag","")}</span> {name}</span>
-            <a href="{tv_url}" target="_blank" class="tv-btn">📈 TradingView</a>
+            <span class="smkt"><span class="fl">{r.get("flag","")}</span> {name} {crypto_badge}</span>
+            <a href="{tv_url}" target="_blank" class="tv-btn">📈 TV</a>
           </div>
           <div class="src-row">{comp_html}</div>
           <div class="slvl">
-            <div><span class="lb">ورود</span><span class="vl">{sig["entry"]}</span></div>
-            <div><span class="lb">هدف سود</span><span class="vl" style="color:#00ff88">{sig["tp"]}</span></div>
-            <div><span class="lb">حد ضرر</span><span class="vl" style="color:#ff4444">{sig["sl"]}</span></div>
+            <div><span class="lb">ورود بهینه</span><span class="vl">{sig["entry"]}</span></div>
+            <div><span class="lb">Take Profit</span><span class="vl" style="color:#00ff88">{sig["tp"]}</span></div>
+            <div><span class="lb">Stop Loss</span><span class="vl" style="color:#ff4444">{sig["sl"]}</span></div>
           </div>
-          <div class="sf">Confidence: {sig["confidence"]}% · نسبت ریسک/سود: 1:{sig["rr"]} · منبع: <span style="color:{src_color}">{src}</span></div>
+          {adv_html}
+          <div class="sf">Confidence: {sig["confidence"]}% · R/R: 1:{sig["rr"]} · <span style="color:{src_color}">{src}</span></div>
         </div>"""
+    
+    signals_html = "".join([make_signal_card(k,v) for k,v in results.items() if v.get("type","market") != "crypto"])
+    crypto_html  = "".join([make_signal_card(k,v) for k,v in results.items() if v.get("type") == "crypto"])
 
-    # جدول بازارها
-    rows = ""
-    for k, v in results.items():
+    # جدول بازارها (غیر کریپتو)
+    def make_row(k, v, is_crypto=False):
         chg  = v.get("change_pct",0)
         cls  = "up" if chg>=0 else "dn"
         arrow= "▲" if chg>=0 else "▼"
-        d    = sv(v,"direction","—")
+        sig  = v.get("signal",{})
+        d    = sig.get("direction","—") if sig else "—"
         dcls = "up" if d=="LONG" else ("dn" if d=="SHORT" else "")
         tv   = v.get("tv_url","#")
         src  = v.get("source","—")
-        sc2  = "#4da6ff" if src=="Alpha Vantage" else "#00cc66"
-        rows += (f"<tr>"
-                 f"<td><span class='fl'>{v.get('flag','')}</span> {k}</td>"
-                 f"<td>{v.get('price','N/A')}</td>"
-                 f"<td class='{cls}'>{arrow} {abs(chg):.2f}%</td>"
-                 f"<td>{gv(v,'cond_vol','N/A')}%</td>"
-                 f"<td>{gv(v,'persistence','N/A')}</td>"
-                 f"<td class='{dcls}'>{d}</td>"
-                 f"<td style='color:{sc2}'>{src}</td>"
-                 f"<td><a href='{tv}' target='_blank' style='color:#4da6ff;font-size:11px'>📈 چارت</a></td>"
-                 f"</tr>")
+        entry= sig.get("entry","—") if sig else "—"
+        tp   = sig.get("tp","—") if sig else "—"
+        sl   = sig.get("sl","—") if sig else "—"
+        rr   = sig.get("rr","—") if sig else "—"
+        conf = sig.get("confidence","—") if sig else "—"
+        if is_crypto:
+            return (f"<tr style='background:#0f1a10'>"
+                    f"<td><span style='background:#f7931a22;color:#f7931a;padding:1px 5px;border-radius:3px;font-size:10px'>{k}</span></td>"
+                    f"<td><strong>{v.get('price','N/A')}</strong></td>"
+                    f"<td class='{cls}'>{arrow} {abs(chg):.2f}%</td>"
+                    f"<td>{gv(v,'cond_vol','N/A')}%</td>"
+                    f"<td style='color:#00ff88'>{entry}</td>"
+                    f"<td style='color:#00ff88'>{tp}</td>"
+                    f"<td style='color:#ff4444'>{sl}</td>"
+                    f"<td>{rr}</td>"
+                    f"<td>{conf}%</td>"
+                    f"<td><a href='{tv}' target='_blank' style='color:#f7931a;font-size:11px'>📈</a></td>"
+                    f"</tr>")
+        else:
+            return (f"<tr>"
+                    f"<td><span class='fl'>{v.get('flag','')}</span> {k}</td>"
+                    f"<td>{v.get('price','N/A')}</td>"
+                    f"<td class='{cls}'>{arrow} {abs(chg):.2f}%</td>"
+                    f"<td>{gv(v,'cond_vol','N/A')}%</td>"
+                    f"<td>{gv(v,'persistence','N/A')}</td>"
+                    f"<td style='color:#00ff88'>{entry}</td>"
+                    f"<td style='color:#00ff88'>{tp}</td>"
+                    f"<td style='color:#ff4444'>{sl}</td>"
+                    f"<td class='{dcls}'>{d}</td>"
+                    f"<td>{rr}</td>"
+                    f"<td><a href='{tv}' target='_blank' style='color:#4da6ff;font-size:11px'>📈</a></td>"
+                    f"</tr>")
+
+    rows       = "".join([make_row(k,v) for k,v in results.items() if v.get("type","market")!="crypto"])
+    crypto_rows= "".join([make_row(k,v,True) for k,v in results.items() if v.get("type")=="crypto"])
 
     return f"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -393,6 +593,9 @@ body{{background:#0a0e1a;color:#e0e6f0;font-family:'Segoe UI',sans-serif}}
 .slvl{{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}}
 .lb{{font-size:10px;color:#445;display:block}}.vl{{font-family:monospace;font-size:13px;font-weight:600}}
 .sf{{font-size:11px;color:#4da6ff66;border-top:1px solid #1e2d45;padding-top:6px}}
+.adv-row{{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;padding:4px 0;border-top:1px solid #1a2535}}
+.adv-label{{font-size:9px;color:#445}}
+.adv-val{{font-size:11px;font-family:monospace;font-weight:600;margin-left:3px}}
 canvas{{max-height:250px}}
 table{{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}}
 th{{color:#445;font-weight:500;text-align:left;padding:5px 6px;border-bottom:1px solid #1a2535}}
@@ -458,7 +661,7 @@ a{{text-decoration:none}}
 
 <div class="mgrid">
   <div class="panel">
-    <div class="ptitle"><h3>سیگنال‌های معاملاتی</h3><span>TRADE SETUPS</span></div>
+    <div class="ptitle"><h3>سیگنال‌های معاملاتی — بازارها</h3><span>TRADE SETUPS</span></div>
     {signals_html}
   </div>
   <div class="panel">
@@ -470,9 +673,35 @@ a{{text-decoration:none}}
         <thead><tr>
           <th>بازار</th><th>قیمت</th><th>تغییر</th>
           <th>نوسانات</th><th>پایداری</th>
-          <th>سیگنال</th><th>منبع</th><th>چارت</th>
+          <th>ورود</th><th>TP</th><th>SL</th>
+          <th>سیگنال</th><th>R/R</th><th>چارت</th>
         </tr></thead>
         <tbody>{rows}</tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- بخش کریپتو -->
+<div style="padding:0 24px 20px">
+  <div class="panel" style="border-color:#f7931a44">
+    <div class="ptitle">
+      <h3 style="color:#f7931a">ارزهای دیجیتال</h3>
+      <span style="color:#f7931a">CRYPTO — GARCH ANALYSIS</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+      {crypto_html}
+    </div>
+    <!-- جدول کریپتو -->
+    <div style="margin-top:16px;border-top:1px solid #f7931a22;padding-top:12px">
+      <table>
+        <thead><tr>
+          <th>ارز</th><th>قیمت</th><th>تغییر</th>
+          <th>نوسانات GARCH</th><th>ورود بهینه</th>
+          <th>Take Profit</th><th>Stop Loss</th>
+          <th>R/R</th><th>Confidence</th><th>چارت</th>
+        </tr></thead>
+        <tbody>{crypto_rows}</tbody>
       </table>
     </div>
   </div>
