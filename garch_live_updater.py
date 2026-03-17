@@ -5,34 +5,34 @@ from arch import arch_model
 from datetime import datetime
 import json, os, webbrowser, subprocess
 
-# 1. مسیر دقیق پوشه (مطابق تصویر شما)
-FOLDER_PATH = r"C:\Users\ahhum\OneDrive\Documents\آسیا\بزنس"
+# ۱. تنظیم دقیق مسیر و نام فایل طبق خواسته شما
+FOLDER_PATH = r"C:\Users\ahhum\OneDrive\Documents\بزنس\آسیا"
 FILE_NAME = "index.html"
 
-# 2. لیست کامل بازارهای شما
+# ۲. لیست بازارهای هدف
 MARKETS = {
-    "AUD/JPY": {"yahoo": "AUDJPY=X", "flag": "au"},
-    "USD/JPY": {"yahoo": "JPY=X", "flag": "jp"},
-    "Bitcoin": {"yahoo": "BTC-USD", "flag": "btc"},
-    "Ethereum": {"yahoo": "ETH-USD", "flag": "eth"},
-    "Solana": {"yahoo": "SOL-USD", "flag": "sol"},
-    "XRP": {"yahoo": "XRP-USD", "flag": "xrp"},
-    "Dogecoin": {"yahoo": "DOGE-USD", "flag": "doge"}
+    "AUD/JPY": {"yahoo": "AUDJPY=X", "flag": "🇦🇺"},
+    "USD/JPY": {"yahoo": "JPY=X", "flag": "🇯🇵"},
+    "Bitcoin": {"yahoo": "BTC-USD", "flag": "₿"},
+    "Ethereum": {"yahoo": "ETH-USD", "flag": "⏳"},
+    "Solana": {"yahoo": "SOL-USD", "flag": "☀️"},
+    "XRP": {"yahoo": "XRP-USD", "flag": "💧"},
+    "Dogecoin": {"yahoo": "DOGE-USD", "flag": "🐕"}
 }
 
 def analyze():
     results = {}
-    print("🔄 در حال پردازش نهایی...")
+    print("🔄 در حال دریافت داده‌ها و تحلیل GARCH...")
     for name, info in MARKETS.items():
         try:
             df = yf.download(info["yahoo"], period="6mo", interval="1d", progress=False, auto_adjust=True)
             if df.empty: continue
             
-            # استخراج قیمت پایانی
+            # استخراج قیمت و محاسبه بازدهی
             close = df.iloc[:, 0] if not isinstance(df.columns, pd.MultiIndex) else df['Close'].iloc[:, 0]
             returns = 100 * close.pct_change().dropna()
             
-            # مدل GARCH
+            # اجرای مدل GARCH(1,1)
             model = arch_model(returns, vol='Garch', p=1, q=1, dist='normal', rescale=False)
             res = model.fit(disp='off', show_warning=False)
             
@@ -44,66 +44,107 @@ def analyze():
                 "rets_list": returns.tail(50).tolist(),
                 "vols_list": res.conditional_volatility.tail(50).tolist()
             }
-            print(f"✅ {name} اوکی شد.")
-        except: continue
+            print(f"✅ {name} تحلیل شد.")
+        except Exception as e:
+            print(f"❌ خطا در {name}: {e}")
+            continue
     return results
 
 def save_and_push(data):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    # استفاده از داده‌های اولین بازار برای نمودار اصلی
+    now = datetime.now().strftime("%H:%M:%S %Y-%m-%d")
     first_market = list(data.values())[0]
     
+    # ساخت ردیف‌های جدول
     rows = ""
     for name, r in data.items():
-        rows += f"<tr><td>{r['flag']} {name}</td><td>{r['price']}</td><td>{r['change']}%</td><td>{r['vol']}%</td></tr>"
+        color = "#00ff88" if r['change'] >= 0 else "#ff4d4d"
+        rows += f"<tr><td>{r['flag']} {name}</td><td>{r['price']}</td><td style='color:{color}'>{r['change']}%</td><td>{r['vol']}%</td></tr>"
 
-    html = f"""
+    html_content = f"""
     <!DOCTYPE html>
     <html lang="fa" dir="rtl">
     <head>
         <meta charset="UTF-8">
+        <title>داشبورد نوسانات GARCH</title>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <style>
-            body {{ background: #0a0e1a; color: white; font-family: Tahoma; padding: 20px; }}
-            .panel {{ background: #0d1525; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #1e2d45; }}
-            table {{ width: 100%; border-collapse: collapse; }}
-            th, td {{ padding: 12px; border-bottom: 1px solid #1e2d45; text-align: right; }}
-            th {{ color: #4da6ff; }}
+            body {{ background: #0b0e14; color: white; font-family: 'Segoe UI', Tahoma; padding: 20px; }}
+            .card {{ background: #151921; padding: 25px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #232a36; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }}
+            h1 {{ margin: 0; color: #ffffff; font-size: 24px; }}
+            .update {{ color: #8a94a6; font-size: 14px; margin-top: 5px; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            th, td {{ padding: 15px; text-align: right; border-bottom: 1px solid #232a36; }}
+            th {{ color: #4da6ff; text-transform: uppercase; font-size: 12px; }}
+            tr:hover {{ background: #1c222d; }}
+            #chart-container {{ position: relative; height: 400px; width: 100%; }}
         </style>
     </head>
     <body>
-        <div class="panel"><h2>داشبورد زنده GARCH</h2><p>زمان به‌روزرسانی: {now}</p></div>
-        <div class="panel"><canvas id="mainChart" style="height:400px;"></canvas></div>
-        <div class="panel"><table><thead><tr><th>بازار</th><th>قیمت</th><th>تغییر</th><th>نوسان GARCH</th></tr></thead>
-        <tbody>{rows}</tbody></table></div>
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>داشبورد زنده نوسانات GARCH 📊</h1>
+                    <div class="update">آخرین به‌روزرسانی: {now}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div id="chart-container"><canvas id="mainChart"></canvas></div>
+        </div>
+
+        <div class="card">
+            <table>
+                <thead>
+                    <tr><th>بازار</th><th>قیمت فعلی</th><th>تغییر روزانه</th><th>نوسان (GARCH)</th></tr>
+                </thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>
+
         <script>
-            new Chart(document.getElementById('mainChart'), {{
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            new Chart(ctx, {{
                 type: 'line',
                 data: {{
-                    labels: {json.dumps([f"T-{i}" for i in range(len(first_market['rets_list']))][::-1])},
+                    labels: {json.dumps([f"T-{i}" for i in range(50)][::-1])},
                     datasets: [
-                        {{ label: 'Returns', data: {json.dumps(first_market['rets_list'])}, borderColor: '#00ff88', tension: 0.3, yAxisID: 'y' }},
-                        {{ label: 'GARCH Volatility', data: {json.dumps(first_market['vols_list'])}, borderColor: '#4da6ff', tension: 0.3, yAxisID: 'y1' }}
+                        {{ label: 'بازدهی (%)', data: {json.dumps(first_market['rets_list'])}, borderColor: '#00ff88', borderWidth: 2, tension: 0.3, yAxisID: 'y', pointRadius: 0 }},
+                        {{ label: 'نوسان GARCH', data: {json.dumps(first_market['vols_list'])}, borderColor: '#3d85ff', borderWidth: 2, tension: 0.3, yAxisID: 'y1', pointRadius: 0 }}
                     ]
                 }},
-                options: {{ scales: {{ y: {{ position: 'left' }}, y1: {{ position: 'right', grid: {{ display: false }} }} }} }}
+                options: {{ 
+                    maintainAspectRatio: false,
+                    scales: {{ 
+                        y: {{ position: 'left', grid: {{ color: '#232a36' }} }}, 
+                        y1: {{ position: 'right', grid: {{ display: false }} }} 
+                    }},
+                    plugins: {{ legend: {{ labels: {{ color: 'white' }} }} }}
+                }}
             }});
         </script>
-    </body></html>"""
+    </body>
+    </html>"""
 
+    # ذخیره در مسیر اصلی
     full_path = os.path.join(FOLDER_PATH, FILE_NAME)
     with open(full_path, "w", encoding="utf-8") as f:
-        f.write(html)
+        f.write(html_content)
     
-    # اجرای اتوماتیک گیت
+    print(f"✅ فایل با موفقیت ساخته شد: {full_path}")
+    
+    # ارسال خودکار به گیت‌هاب
     try:
-        subprocess.run("git add index.html", cwd=FOLDER_PATH, shell=True)
-        subprocess.run(f'git commit -m "Auto Update {now}"', cwd=FOLDER_PATH, shell=True)
-        subprocess.run("git push origin main", cwd=FOLDER_PATH, shell=True)
-        print("🚀 GitHub Pages به روز شد!")
-    except: pass
-    
-    webbrowser.open(f"file:///{full_path}")
+        os.chdir(FOLDER_PATH)
+        subprocess.run(["git", "add", FILE_NAME], shell=True)
+        subprocess.run(["git", "commit", "-m", f"Auto-update {now}"], shell=True)
+        subprocess.run(["git", "push", "origin", "main"], shell=True)
+        print("🚀 گیت‌هاب با موفقیت به‌روزرسانی شد!")
+    except Exception as e:
+        print(f"⚠️ خطا در آپلود گیت‌هاب: {e}")
+
+    # باز کردن در مرورگر
+    webbrowser.open('file://' + full_path)
 
 if __name__ == "__main__":
     results = analyze()
