@@ -1,111 +1,33 @@
-import yfinance as yf
-import numpy as np
-import pandas as pd
-from arch import arch_model
-from datetime import datetime
-import json, os, webbrowser, subprocess
 
-# 1. مسیر دقیق پوشه (مطابق تصویر شما)
-FOLDER_PATH = r"C:\Users\ahhum\OneDrive\Documents\آسیا\بزنس"
-FILE_NAME = "index.html"
-
-# 2. لیست کامل بازارهای شما
-MARKETS = {
-    "AUD/JPY": {"yahoo": "AUDJPY=X", "flag": "au"},
-    "USD/JPY": {"yahoo": "JPY=X", "flag": "jp"},
-    "Bitcoin": {"yahoo": "BTC-USD", "flag": "btc"},
-    "Ethereum": {"yahoo": "ETH-USD", "flag": "eth"},
-    "Solana": {"yahoo": "SOL-USD", "flag": "sol"},
-    "XRP": {"yahoo": "XRP-USD", "flag": "xrp"},
-    "Dogecoin": {"yahoo": "DOGE-USD", "flag": "doge"}
-}
-
-def analyze():
-    results = {}
-    print("🔄 در حال پردازش نهایی...")
-    for name, info in MARKETS.items():
-        try:
-            df = yf.download(info["yahoo"], period="6mo", interval="1d", progress=False, auto_adjust=True)
-            if df.empty: continue
-            
-            # استخراج قیمت پایانی
-            close = df.iloc[:, 0] if not isinstance(df.columns, pd.MultiIndex) else df['Close'].iloc[:, 0]
-            returns = 100 * close.pct_change().dropna()
-            
-            # مدل GARCH
-            model = arch_model(returns, vol='Garch', p=1, q=1, dist='normal', rescale=False)
-            res = model.fit(disp='off', show_warning=False)
-            
-            results[name] = {
-                "price": round(float(close.iloc[-1]), 4),
-                "change": round(float(((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2]) * 100), 2),
-                "vol": round(float(res.conditional_volatility.iloc[-1]), 4),
-                "flag": info["flag"],
-                "rets_list": returns.tail(50).tolist(),
-                "vols_list": res.conditional_volatility.tail(50).tolist()
-            }
-            print(f"✅ {name} اوکی شد.")
-        except: continue
-    return results
-
-def save_and_push(data):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    # استفاده از داده‌های اولین بازار برای نمودار اصلی
-    first_market = list(data.values())[0]
-    
-    rows = ""
-    for name, r in data.items():
-        rows += f"<tr><td>{r['flag']} {name}</td><td>{r['price']}</td><td>{r['change']}%</td><td>{r['vol']}%</td></tr>"
-
-    html = f"""
     <!DOCTYPE html>
     <html lang="fa" dir="rtl">
     <head>
         <meta charset="UTF-8">
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <style>
-            body {{ background: #0a0e1a; color: white; font-family: Tahoma; padding: 20px; }}
-            .panel {{ background: #0d1525; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #1e2d45; }}
-            table {{ width: 100%; border-collapse: collapse; }}
-            th, td {{ padding: 12px; border-bottom: 1px solid #1e2d45; text-align: right; }}
-            th {{ color: #4da6ff; }}
+            body { background: #0a0e1a; color: white; font-family: Tahoma; padding: 20px; }
+            .panel { background: #0d1525; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #1e2d45; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 12px; border-bottom: 1px solid #1e2d45; text-align: right; }
+            th { color: #4da6ff; }
         </style>
     </head>
     <body>
-        <div class="panel"><h2>داشبورد زنده GARCH</h2><p>زمان به‌روزرسانی: {now}</p></div>
+        <div class="panel"><h2>داشبورد زنده GARCH</h2><p>زمان به‌روزرسانی: 2026-03-17 13:01</p></div>
         <div class="panel"><canvas id="mainChart" style="height:400px;"></canvas></div>
         <div class="panel"><table><thead><tr><th>بازار</th><th>قیمت</th><th>تغییر</th><th>نوسان GARCH</th></tr></thead>
-        <tbody>{rows}</tbody></table></div>
+        <tbody><tr><td>au AUD/JPY</td><td>112.846</td><td>0.19%</td><td>0.6529%</td></tr><tr><td>jp USD/JPY</td><td>159.376</td><td>0.11%</td><td>0.5136%</td></tr><tr><td>btc Bitcoin</td><td>75620.7422</td><td>3.89%</td><td>2.2546%</td></tr><tr><td>eth Ethereum</td><td>2360.3474</td><td>8.4%</td><td>3.6229%</td></tr><tr><td>sol Solana</td><td>95.71</td><td>3.75%</td><td>4.0704%</td></tr><tr><td>xrp XRP</td><td>1.5694</td><td>8.42%</td><td>3.9042%</td></tr><tr><td>doge Dogecoin</td><td>0.1032</td><td>5.98%</td><td>4.3673%</td></tr></tbody></table></div>
         <script>
-            new Chart(document.getElementById('mainChart'), {{
+            new Chart(document.getElementById('mainChart'), {
                 type: 'line',
-                data: {{
-                    labels: {json.dumps([f"T-{i}" for i in range(len(first_market['rets_list']))][::-1])},
+                data: {
+                    labels: ["T-49", "T-48", "T-47", "T-46", "T-45", "T-44", "T-43", "T-42", "T-41", "T-40", "T-39", "T-38", "T-37", "T-36", "T-35", "T-34", "T-33", "T-32", "T-31", "T-30", "T-29", "T-28", "T-27", "T-26", "T-25", "T-24", "T-23", "T-22", "T-21", "T-20", "T-19", "T-18", "T-17", "T-16", "T-15", "T-14", "T-13", "T-12", "T-11", "T-10", "T-9", "T-8", "T-7", "T-6", "T-5", "T-4", "T-3", "T-2", "T-1", "T-0"],
                     datasets: [
-                        {{ label: 'Returns', data: {json.dumps(first_market['rets_list'])}, borderColor: '#00ff88', tension: 0.3, yAxisID: 'y' }},
-                        {{ label: 'GARCH Volatility', data: {json.dumps(first_market['vols_list'])}, borderColor: '#4da6ff', tension: 0.3, yAxisID: 'y1' }}
+                        { label: 'Returns', data: [0.20682107435705532, 0.37473577579418826, -0.1724555237529568, -0.25153712910059856, 0.6090186244873674, 0.22795023960788807, 0.3878486660151337, -0.49539893976379146, 0.4015068796956234, -0.8731911891358579, 0.738497646054137, 0.3137751812005485, 0.5232004615189023, 1.2951228394063596, -1.0424040429604653, -0.5239007724270106, -0.05716093946702694, 1.0492223633324471, 0.1503239036245052, -0.12785991846031575, 0.29222903485996987, 1.176597036598337, 0.3373590283089145, -1.205476168578412, 1.9985979072185467, -0.004525496828500231, -1.1809597660984883, -0.07412134062096953, -0.8259931938317311, -0.26131797277161306, 0.5767674282711743, -0.16476666260988315, 0.45362751123394496, 0.47818863087762953, 0.25394378432550546, -0.538487842053581, 0.8034068083048185, 1.0478292311393744, -0.45867625238988907, -0.12107217670527248, 1.0755730793744478, -0.5862073439109938, -0.008104686170751219, -0.5618033097000708, -0.08148373340561843, 1.09644069674939, 0.8873572399135332, 0.7516197814000813, -0.678110096920348, 0.18821846048719948], borderColor: '#00ff88', tension: 0.3, yAxisID: 'y' },
+                        { label: 'GARCH Volatility', data: [0.5209369061863364, 0.5122563475301352, 0.5133398641121929, 0.516236244180633, 0.5240939081571008, 0.5407070212829886, 0.5258219238156195, 0.5229287552178609, 0.5548349466888618, 0.5428127828202862, 0.6277166613331281, 0.6219197903541549, 0.5837097721325729, 0.5708955265135669, 0.6798594055582812, 0.7389072737229069, 0.69891530539768, 0.6369107346486228, 0.6722250430503474, 0.6151499911652845, 0.5813669257373593, 0.5551476145989557, 0.6473664204088131, 0.6023173469155003, 0.7280519833636374, 0.9226355193488565, 0.799087103127086, 0.8371525818991346, 0.7374379641640612, 0.7378042712702049, 0.6748035842234008, 0.6368947485281888, 0.5982817424082977, 0.5752536744452154, 0.5616653051525253, 0.5405560906479192, 0.5714156595675676, 0.5943198754608587, 0.6462520904057157, 0.6292251955786844, 0.590701196060527, 0.6489379864176729, 0.6463029258114343, 0.5984005997931103, 0.6106355093058551, 0.5761368631640537, 0.6441645814277018, 0.651941032412018, 0.6393821844765442, 0.6528595373724246], borderColor: '#4da6ff', tension: 0.3, yAxisID: 'y1' }
                     ]
-                }},
-                options: {{ scales: {{ y: {{ position: 'left' }}, y1: {{ position: 'right', grid: {{ display: false }} }} }} }}
-            }});
+                },
+                options: { scales: { y: { position: 'left' }, y1: { position: 'right', grid: { display: false } } } }
+            });
         </script>
-    </body></html>"""
-
-    full_path = os.path.join(FOLDER_PATH, FILE_NAME)
-    with open(full_path, "w", encoding="utf-8") as f:
-        f.write(html)
-    
-    # اجرای اتوماتیک گیت
-    try:
-        subprocess.run("git add index.html", cwd=FOLDER_PATH, shell=True)
-        subprocess.run(f'git commit -m "Auto Update {now}"', cwd=FOLDER_PATH, shell=True)
-        subprocess.run("git push origin main", cwd=FOLDER_PATH, shell=True)
-        print("🚀 GitHub Pages به روز شد!")
-    except: pass
-    
-    webbrowser.open(f"file:///{full_path}")
-
-if __name__ == "__main__":
-    results = analyze()
-    if results:
-        save_and_push(results)
+    </body></html>
