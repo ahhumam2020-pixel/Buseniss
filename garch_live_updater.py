@@ -6,7 +6,7 @@ from datetime import datetime
 import json, os, webbrowser, subprocess
 
 # ۱. تنظیم دقیق مسیر و نام فایل طبق خواسته شما
-FOLDER_PATH = r"C:\Users\ahhum\OneDrive\Documents\بزنس\آسیا"
+FOLDER_PATH = r"C:\Users\ahhum\OneDrive\Documents\Business\Asia"
 FILE_NAME = "index.html"
 
 # ۲. لیست بازارهای هدف
