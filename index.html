@@ -1,178 +1,158 @@
+#!/usr/bin/env python3
+"""
+GARCH Live Updater — نسخه رفع‌شده (بدون SyntaxError)
+"""
+
 import os
+import json
+import numpy as np
+import pandas as pd
+import yfinance as yf
+from arch import arch_model
 from datetime import datetime
 
-import yfinance as yf
-import pandas as pd
-from arch import arch_model
-import json
+# ─────────────────────────────────────────────
+#  مسیر ذخیره JSON
+# ─────────────────────────────────────────────
+SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_JSON = os.path.join(SCRIPT_DIR, "garch_data.json")
 
-# 1) مسیر پوشه ریپو (اینجا را با مسیر واقعی ریپو روی سیستم خود عوض کنید)
-REPO_FOLDER = r"C:\Users\ahhum\OneDrive\Documents\Business\Buseniss"
-INDEX_FILE = "index.html"
-
-MARKETS = {
-    "AUD/JPY": {"yahoo": "AUDJPY=X", "flag": "🇦🇺"},
-    "USD/JPY": {"yahoo": "JPY=X", "flag": "🇯🇵"},
-    "Bitcoin": {"yahoo": "BTC-USD", "flag": "₿"},
-    "Ethereum": {"yahoo": "ETH-USD", "flag": "⏳"},
-    "Solana": {"yahoo": "SOL-USD", "flag": "☀️"},
-    "XRP": {"yahoo": "XRP-USD", "flag": "💧"},
-    "Dogecoin": {"yahoo": "DOGE-USD", "flag": "🐕"},
+# ─────────────────────────────────────────────
+#  همه ۱۲ بازار
+# ─────────────────────────────────────────────
+ALL_MARKETS = {
+    "AUD/JPY":  {"yahoo": "AUDJPY=X"},
+    "USD/JPY":  {"yahoo": "JPY=X"},
+    "EUR/USD":  {"yahoo": "EURUSD=X"},
+    "Gold":     {"yahoo": "GC=F"},
+    "Silver":   {"yahoo": "SI=F"},
+    "S&P500":   {"yahoo": "^GSPC"},
+    "DJ30":     {"yahoo": "^DJI"},
+    "NSDQ100":  {"yahoo": "^NDX"},
+    "RTY2000":  {"yahoo": "^RUT"},
+    "BTC":      {"yahoo": "BTC-USD"},
+    "ETH":      {"yahoo": "ETH-USD"},
+    "SOL":      {"yahoo": "SOL-USD"},
 }
 
+# ─────────────────────────────────────────────
+#  محاسبه ATR(14)
+# ─────────────────────────────────────────────
+def calculate_atr(df, period=14):
+    high  = df['High']
+    low   = df['Low']
+    close = df['Close']
+    tr1 = high - low
+    tr2 = abs(high - close.shift(1))
+    tr3 = abs(low  - close.shift(1))
+    tr  = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    return tr.rolling(period).mean().iloc[-1]
+
+# ─────────────────────────────────────────────
+#  تبدیل امن به float — رفع خطای BTC/ETH/SOL
+# ─────────────────────────────────────────────
+def to_float(val):
+    try:
+        if hasattr(val, 'iloc'):
+            val = val.iloc[0]
+        return float(val)
+    except Exception:
+        return 0.0
+
+# ─────────────────────────────────────────────
+#  تحلیل اصلی
+# ─────────────────────────────────────────────
 def analyze():
     results = {}
-    print("در حال دریافت داده‌ها و اجرای GARCH ...")
-    for name, info in MARKETS.items():
+
+    for name, info in ALL_MARKETS.items():
         try:
-            df = yf.download(
-                info["yahoo"],
-                period="6mo",
-                interval="1d",
-                progress=False,
-                auto_adjust=True,
-            )
-            if df.empty:
-                print(f"⚠️ داده‌ای برای {name} دریافت نشد.")
+            print(f"  ⏳ در حال تحلیل {name}...")
+
+            df = yf.download(info["yahoo"], period="60d", progress=False)
+
+            if df.empty or len(df) < 20:
+                print(f"  ⚠️  داده کافی برای {name} موجود نیست")
                 continue
 
-            # ستون قیمت بسته شدن
-            if isinstance(df.columns, pd.MultiIndex):
-                close = df["Close"].iloc[:, 0]
-            else:
-                close = df.iloc[:, 0]
+            close   = df['Close'].dropna()
+            returns = (100 * close.pct_change()).dropna()
 
-            returns = 100 * close.pct_change().dropna()
+            # مدل GARCH(1,1)
+            model     = arch_model(returns, vol="Garch", p=1, q=1)
+            res       = model.fit(disp="off")
+            forecast  = res.forecast(horizon=1)
+            garch_vol = float(np.sqrt(forecast.variance.values[-1, 0]))
 
-            model = arch_model(
-                returns, vol="Garch", p=1, q=1, dist="normal", rescale=False
-            )
-            res = model.fit(disp="off", show_warning=False)
+            # ATR
+            atr = calculate_atr(df)
+
+            # قیمت — تبدیل امن برای همه بازارها
+            price      = to_float(close.iloc[-1])
+            prev_price = to_float(close.iloc[-2]) if len(close) > 1 else price
+            change_pct = round((price - prev_price) / prev_price * 100, 4) if prev_price != 0 else 0.0
+
+            # سیگنال
+            last_return = to_float(returns.iloc[-1])
+            signal      = "LONG" if last_return > 0 else "SHORT"
+            atr_val     = to_float(atr)
+            sl_distance = atr_val * 1.2
+            tp_distance = sl_distance * 2.5
+            sl = price - sl_distance if signal == "LONG" else price + sl_distance
+            tp = price + tp_distance if signal == "LONG" else price - tp_distance
+            rr = abs(tp - price) / abs(sl - price) if abs(sl - price) > 0 else 0
+
+            # تاریخچه ۵۰ کندل برای نمودار داشبورد
+            history = [round(to_float(v), 6) for v in close.tail(50).tolist()]
 
             results[name] = {
-                "price": round(float(close.iloc[-1]), 4),
-                "change": round(
-                    float((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100), 2
-                ),
-                "vol": round(float(res.conditional_volatility.iloc[-1]), 4),
-                "flag": info["flag"],
-                "rets_list": returns.tail(50).tolist(),
-                "vols_list": res.conditional_volatility.tail(50).tolist(),
+                "price":      round(price, 4),
+                "change":     change_pct,
+                "garch":      round(garch_vol, 4),
+                "signal":     signal,
+                "sl":         round(sl, 4),
+                "tp":         round(tp, 4),
+                "rr":         round(rr, 2),
+                "confidence": "⭐⭐⭐⭐" if rr > 2 else "⭐⭐⭐",
+                "history":    history,
             }
-            print(f"✅ {name} تحلیل شد.")
+
+            print(f"  ✅ {name}: {signal}  قیمت={price:.4f}  GARCH={garch_vol:.4f}%  R/R={rr:.2f}")
+
         except Exception as e:
-            print(f"❌ خطا در {name}: {e}")
+            print(f"  ❌ خطا در {name}: {e}")
+
     return results
 
-def build_html(data: dict) -> str:
-    now = datetime.now().strftime("%H:%M:%S %Y-%m-%d")
-    first_market = list(data.values())[0]
+# ─────────────────────────────────────────────
+#  ذخیره JSON
+# ─────────────────────────────────────────────
+def save_json(results):
+    output = {
+        "markets": [
+            {"symbol": k, **v}
+            for k, v in results.items()
+        ],
+        "updated": datetime.now().isoformat(),
+        "source":  "live"
+    }
+    with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
+    print(f"\n💾 فایل JSON ذخیره شد: {OUTPUT_JSON}")
 
-    # ردیف‌های جدول
-    rows = ""
-    for name, r in data.items():
-        color = "#00ff88" if r["change"] >= 0 else "#ff4d4d"
-        rows += (
-            f"<tr>"
-            f"<td>{r['flag']} {name}</td>"
-            f"<td>{r['price']}</td>"
-            f"<td style='color:{color}'>{r['change']}%</td>"
-            f"<td>{r['vol']}%</td>"
-            f"</tr>"
-        )
-
-    labels = [f"T-{i}" for i in range(49, -1, -1)]
-    rets_json = json.dumps(first_market["rets_list"])
-    vols_json = json.dumps(first_market["vols_list"])
-    labels_json = json.dumps(labels)
-
-    html = f"""<!DOCTYPE html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <title>داشبورد نوسانات GARCH</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {{ background: #0b0e14; color: white; font-family: 'Segoe UI', Tahoma; padding: 20px; }}
-        .card {{ background: #151921; padding: 25px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #232a36; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }}
-        h1 {{ margin: 0; color: #ffffff; font-size: 24px; }}
-        .update {{ color: #8a94a6; font-size: 14px; margin-top: 5px; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-        th, td {{ padding: 15px; text-align: right; border-bottom: 1px solid #232a36; }}
-        th {{ color: #4da6ff; text-transform: uppercase; font-size: 12px; }}
-        tr:hover {{ background: #1c222d; }}
-        #chart-container {{ position: relative; height: 400px; width: 100%; }}
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h1>داشبورد زنده نوسانات GARCH 📊</h1>
-                <div class="update">آخرین به‌روزرسانی: {now}</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div id="chart-container"><canvas id="mainChart"></canvas></div>
-    </div>
-
-    <div class="card">
-        <table>
-            <thead>
-                <tr><th>بازار</th><th>قیمت فعلی</th><th>تغییر روزانه</th><th>نوسان (GARCH)</th></tr>
-            </thead>
-            <tbody>{rows}</tbody>
-        </table>
-    </div>
-
-    <script>
-        const ctx = document.getElementById('mainChart').getContext('2d');
-        new Chart(ctx, {{
-            type: 'line',
-            data: {{
-                labels: {labels_json},
-                datasets: [
-                    {{ label: 'بازدهی (%)', data: {rets_json}, borderColor: '#00ff88', borderWidth: 2, tension: 0.3, yAxisID: 'y', pointRadius: 0 }},
-                    {{ label: 'نوسان GARCH', data: {vols_json}, borderColor: '#3d85ff', borderWidth: 2, tension: 0.3, yAxisID: 'y1', pointRadius: 0 }}
-                ]
-            }},
-            options: {{
-                maintainAspectRatio: false,
-                scales: {{
-                    y: {{ position: 'left', grid: {{ color: '#232a36' }} }},
-                    y1: {{ position: 'right', grid: {{ display: false }} }}
-                }},
-                plugins: {{
-                    legend: {{ labels: {{ color: 'white' }} }}
-                }}
-            }}
-        }});
-    </script>
-</body>
-</html>"""
-    return html
-
-def main():
-    data = analyze()
-    if not data:
-        print("هیچ دیتایی تولید نشد.")
-        return
-
-    html = build_html(data)
-
-    os.makedirs(REPO_FOLDER, exist_ok=True)
-    full_path = os.path.join(REPO_FOLDER, INDEX_FILE)
-
-    with open(full_path, "w", encoding="utf-8") as f:
-        f.write(html)
-
-    print(f"✅ index.html در این مسیر ساخته شد:\n{full_path}")
-    print("حالا در همان پوشه، این دستورات را بزنید:")
-    print("  git add index.html")
-    print('  git commit -m "Auto update GARCH dashboard"')
-    print("  git push origin main")
-
+# ─────────────────────────────────────────────
+#  اجرا
+# ─────────────────────────────────────────────
 if __name__ == "__main__":
-    main()
+    print("=" * 50)
+    print("🚀 GARCH Live Updater — شروع تحلیل")
+    print(f"🕐 زمان: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 50)
+
+    results = analyze()
+
+    if results:
+        save_json(results)
+        print(f"\n✅ {len(results)} بازار با موفقیت تحلیل شد.")
+    else:
+        print("\n⚠️  هیچ نتیجه‌ای دریافت نشد. اتصال اینترنت را بررسی کنید.")
