@@ -77,6 +77,5 @@ def analyze():
             print(f"✅ {name}: {signal} R/R={rr}")
         except:
             pass
-    return results
 
 # بقیه کد مثل قبل...
