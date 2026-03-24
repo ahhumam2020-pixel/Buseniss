@@ -84,8 +84,8 @@ def analyze():
 
             # ATR برای SL/TP
             atr         = calculate_atr(df)
-            price       = float(close.iloc[-1])
-            prev_price  = float(close.iloc[-2]) if len(close) > 1 else price
+            price      = float(close.iloc[-1].squeeze())
+prev_price = float(close.iloc[-2].squeeze()) if len(close) > 1 else price
             change_pct  = round((price - prev_price) / prev_price * 100, 4)
 
             # سیگنال
