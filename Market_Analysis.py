@@ -4,7 +4,7 @@ import re, datetime, pytz, warnings
 import pandas as pd
 import numpy as np
 
-# تنظیمات اولیه
+# غیرفعال کردن هشدارهای مزاحم
 warnings.filterwarnings("ignore")
 melbourne_tz = pytz.timezone('Australia/Melbourne')
 
@@ -31,30 +31,30 @@ def start_analysis():
             data = yf.download(ticker, period="2mo", interval="1d", progress=False)
             if data.empty or len(data) < 20: continue
 
-            # ۲. استخراج قیمت فعلی (رفع خطای scalar در تصویر شما)
-            last_price = float(data['Close'].iloc[-1])
+            # ۲. استخراج قیمت (تبدیل قطعی به عدد تکی برای رفع خطای Ambiguous)
+            last_price = float(data['Close'].values.flatten()[-1])
             returns = 100 * data['Close'].pct_change().dropna()
+            last_return = float(returns.values.flatten()[-1])
 
-            # ۳. محاسبه نوسان با مدل GARCH
+            # ۳. محاسبه نوسان GARCH
             try:
                 model = arch_model(returns, vol='Garch', p=1, q=1)
                 res = model.fit(disp='off')
                 forecast = res.forecast(horizon=1)
-                vol_val = np.sqrt(forecast.variance.iloc[-1].values[0])
+                vol_val = float(np.sqrt(forecast.variance.values[-1, 0]))
             except:
-                vol_val = returns.std()
+                vol_val = float(returns.std())
 
-            # ۴. محاسبه نقاط ورود و خروج (استراتژی نوسان‌محور)
-            # حد ضرر و هدف بر اساس ۲ برابر نوسان GARCH تنظیم شده است
+            # ۴. محاسبه نقاط ورود و خروج
             entry = last_price
-            stop_loss = entry * (1 - (vol_val * 0.01 * 1.5)) # 1.5x Volatility
-            target = entry * (1 + (vol_val * 0.01 * 2))    # 2x Volatility
+            stop_loss = entry * (1 - (vol_val * 0.01 * 1.5))
+            target = entry * (1 + (vol_val * 0.01 * 2))
             
             # تعیین روند
-            trend = "BUY ZONE" if returns.iloc[-1] > 0 else "SELL ZONE"
+            trend = "BUY ZONE" if last_return > 0 else "SELL ZONE"
             trend_color = "#10b981" if trend == "BUY ZONE" else "#ef4444"
 
-            # ۵. تزریق دقیق اعداد به HTML
+            # ۵. تزریق به HTML
             html = re.sub(rf'id="price-{label}">.*?</div>', f'id="price-{label}">{last_price:,.2f}</div>', html)
             html = re.sub(rf'id="garch-{label}">.*?</div>', f'id="garch-{label}">{vol_val:.2f}%</div>', html)
             html = re.sub(rf'id="entry-{label}">.*?</div>', f'id="entry-{label}">{entry:,.2f}</div>', html)
@@ -67,13 +67,13 @@ def start_analysis():
         except Exception as e:
             print(f"⚠️ مشکل در {label}: {e}")
 
-    # ثبت زمان آپدیت
+    # آپدیت زمان
     update_time = now.strftime('%Y/%m/%d %H:%M:%S')
     html = re.sub(rf'Melbourne:.*?</div>', f'Melbourne: {update_time}</div>', html)
 
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html)
-    print("\n✨ تحلیل تمام شد. صفحه مرورگر را رفرش کنید.")
+    print("\n✨ تحلیل با موفقیت تمام شد. حالا فایل index.html را در گیت‌هاب آپلود کنید.")
 
 if __name__ == "__main__":
     start_analysis()
