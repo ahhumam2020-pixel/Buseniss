@@ -1,66 +1,79 @@
 import yfinance as yf
 from arch import arch_model
-import re
-import datetime
+import re, datetime, pytz, warnings
+import pandas as pd
+import numpy as np
 
-# لیست دقیق ۱۲ کارت موجود در تصویر شما
-market_assets = {
-    'sp500': '^GSPC',
-    'silver': 'SI=F',
-    'gold': 'GC=F',
-    'eurusd': 'EURUSD=X',
-    'usdjpy': 'USDJPY=X',
-    'audjpy': 'AUDJPY=X',
-    'sol': 'SOL-USD',
-    'eth': 'ETH-USD',
-    'btc': 'BTC-USD',
-    'rty2000': '^RUT',
-    'nsdq100': '^IXIC',
-    'dj30': '^DJI'
+# تنظیمات اولیه
+warnings.filterwarnings("ignore")
+melbourne_tz = pytz.timezone('Australia/Melbourne')
+
+assets = {
+    'btc': 'BTC-USD', 'eth': 'ETH-USD', 'sol': 'SOL-USD',
+    'gold': 'GC=F', 'silver': 'SI=F', 'sp500': '^GSPC',
+    'nsdq100': '^IXIC', 'dj30': '^DJI', 'rty2000': '^RUT',
+    'eurusd': 'EURUSD=X', 'usdjpy': 'JPY=X', 'audjpy': 'AUDJPY=X'
 }
 
-def update_dashboard():
-    print(f"شروع بروزرسانی داشبورد... زمان ملبورن: {datetime.datetime.now()}")
+def start_analysis():
+    now = datetime.datetime.now(melbourne_tz)
+    print(f"🚀 شروع تحلیل هوشمند | ملبورن: {now.strftime('%Y-%m-%d %H:%M:%S')}")
     
     try:
         with open("index.html", "r", encoding="utf-8") as f:
             html = f.read()
     except FileNotFoundError:
-        print("خطا: فایل index.html در این پوشه پیدا نشد!")
-        return
+        print("❌ خطا: فایل index.html پیدا نشد!"); return
 
-    for label, ticker in market_assets.items():
+    for label, ticker in assets.items():
         try:
-            # ۱. دریافت داده‌ها
-            df = yf.download(ticker, period="1y", interval="1d", progress=False)
-            if df.empty: continue
-            
-            current_price = df['Close'].iloc[-1]
-            
-            # ۲. محاسبه مدل GARCH برای نوسان
-            returns = 100 * df['Close'].pct_change().dropna()
-            model = arch_model(returns, vol='Garch', p=1, q=1)
-            res = model.fit(disp='off')
-            vol = res.forecast(horizon=1).variance.iloc[-1].values[0] ** 0.5
+            # ۱. دریافت دیتا
+            data = yf.download(ticker, period="2mo", interval="1d", progress=False)
+            if data.empty or len(data) < 20: continue
 
-            # ۳. جایگزینی در HTML با استفاده از ID ها
-            # آپدیت قیمت
-            html = re.sub(rf'id="price-{label}">.*?</span>', f'id="price-{label}">{current_price:,.2f}</span>', html)
-            # آپدیت درصد GARCH
-            html = re.sub(rf'id="garch-{label}">.*?</span>', f'id="garch-{label}">{vol:.3f}%</span>', html)
+            # ۲. استخراج قیمت فعلی (رفع خطای scalar در تصویر شما)
+            last_price = float(data['Close'].iloc[-1])
+            returns = 100 * data['Close'].pct_change().dropna()
+
+            # ۳. محاسبه نوسان با مدل GARCH
+            try:
+                model = arch_model(returns, vol='Garch', p=1, q=1)
+                res = model.fit(disp='off')
+                forecast = res.forecast(horizon=1)
+                vol_val = np.sqrt(forecast.variance.iloc[-1].values[0])
+            except:
+                vol_val = returns.std()
+
+            # ۴. محاسبه نقاط ورود و خروج (استراتژی نوسان‌محور)
+            # حد ضرر و هدف بر اساس ۲ برابر نوسان GARCH تنظیم شده است
+            entry = last_price
+            stop_loss = entry * (1 - (vol_val * 0.01 * 1.5)) # 1.5x Volatility
+            target = entry * (1 + (vol_val * 0.01 * 2))    # 2x Volatility
             
-            print(f"✅ {label.upper()} بروز شد: Price: {current_price:,.2f} | GARCH: {vol:.2f}%")
+            # تعیین روند
+            trend = "BUY ZONE" if returns.iloc[-1] > 0 else "SELL ZONE"
+            trend_color = "#10b981" if trend == "BUY ZONE" else "#ef4444"
+
+            # ۵. تزریق دقیق اعداد به HTML
+            html = re.sub(rf'id="price-{label}">.*?</div>', f'id="price-{label}">{last_price:,.2f}</div>', html)
+            html = re.sub(rf'id="garch-{label}">.*?</div>', f'id="garch-{label}">{vol_val:.2f}%</div>', html)
+            html = re.sub(rf'id="entry-{label}">.*?</div>', f'id="entry-{label}">{entry:,.2f}</div>', html)
+            html = re.sub(rf'id="sl-{label}">.*?</div>', f'id="sl-{label}">{stop_loss:,.2f}</div>', html)
+            html = re.sub(rf'id="tp-{label}">.*?</div>', f'id="tp-{label}">{target:,.2f}</div>', html)
+            html = re.sub(rf'id="trend-{label}">.*?</span>', f'id="trend-{label}" style="color:{trend_color}">{trend}</span>', html)
+            
+            print(f"✅ {label.upper()} بروزرسانی شد.")
+
         except Exception as e:
-            print(f"❌ خطا در پردازش {label}: {e}")
+            print(f"⚠️ مشکل در {label}: {e}")
 
-    # ۴. آپدیت زمان آخرین بروزرسانی در بالای صفحه
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    html = re.sub(rf'id="last-update">.*?</div>', f'id="last-update">آخرین بروزرسانی: {now_str} به وقت ملبورن</div>', html)
+    # ثبت زمان آپدیت
+    update_time = now.strftime('%Y/%m/%d %H:%M:%S')
+    html = re.sub(rf'Melbourne:.*?</div>', f'Melbourne: {update_time}</div>', html)
 
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html)
-    print("-" * 30)
-    print("عملیات با موفقیت پایان یافت. حالا فایل index.html را Refresh کنید.")
+    print("\n✨ تحلیل تمام شد. صفحه مرورگر را رفرش کنید.")
 
 if __name__ == "__main__":
-    update_dashboard()
+    start_analysis()

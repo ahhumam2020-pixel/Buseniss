@@ -1,158 +1,76 @@
-#!/usr/bin/env python3
-"""
-GARCH Live Updater — نسخه رفع‌شده (بدون SyntaxError)
-"""
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>داشبورد پیشرفته ۱۲ نماد</title>
+    <style>
+        body { background-color: #030712; color: white; font-family: 'Segoe UI', sans-serif; margin: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #111827; border-radius: 12px; margin-bottom: 20px; border: 1px solid #1f2937; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; }
+        .card { background: #111827; border-radius: 16px; padding: 15px; border: 1px solid #1f2937; transition: 0.3s; }
+        .card:hover { border-color: #38bdf8; }
+        .signal-box { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; padding: 10px; background: #1f2937; border-radius: 8px; font-size: 0.9rem; }
+        .label { color: #94a3b8; }
+        .value { font-weight: bold; font-family: monospace; }
+        .price { font-size: 24px; font-weight: bold; color: #38bdf8; margin: 5px 0; }
+        .tv-widget { height: 200px; border-radius: 8px; overflow: hidden; margin-top: 10px; }
+        #melbourne-clock { color: #10b981; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>تحلیل جامع ۱۲ نماد (GARCH + Technical)</h2>
+        <div id="melbourne-clock">Melbourne: --:--:--</div>
+    </div>
 
-import os
-import json
-import numpy as np
-import pandas as pd
-import yfinance as yf
-from arch import arch_model
-from datetime import datetime
+    <div class="grid" id="main-grid">
+        <script>
+            // لیست کامل ۱۲ نماد برای ساخت خودکار کارت‌ها
+            const assets = [
+                { id: 'btc', name: 'Bitcoin', sym: 'BITSTAMP:BTCUSD' },
+                { id: 'eth', name: 'Ethereum', sym: 'BINANCE:ETHUSD' },
+                { id: 'sol', name: 'Solana', sym: 'BINANCE:SOLUSD' },
+                { id: 'gold', name: 'Gold', sym: 'TVC:GOLD' },
+                { id: 'silver', name: 'Silver', sym: 'TVC:SILVER' },
+                { id: 'sp500', name: 'S&P 500', sym: 'FOREXCOM:SPX500' },
+                { id: 'nsdq100', name: 'Nasdaq 100', sym: 'CURRENCYCOM:US100' },
+                { id: 'dj30', name: 'Dow Jones 30', sym: 'FOREXCOM:DJI' },
+                { id: 'rty2000', name: 'Russell 2000', sym: 'TVC:RTY' },
+                { id: 'eurusd', name: 'EUR / USD', sym: 'FX_IDC:EURUSD' },
+                { id: 'usdjpy', name: 'USD / JPY', sym: 'FX_IDC:USDJPY' },
+                { id: 'audjpy', name: 'AUD / JPY', sym: 'OANDA:AUDJPY' }
+            ];
 
-# ─────────────────────────────────────────────
-#  مسیر ذخیره JSON
-# ─────────────────────────────────────────────
-SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_JSON = os.path.join(SCRIPT_DIR, "garch_data.json")
+            const grid = document.getElementById('main-grid');
+            assets.forEach(a => {
+                grid.innerHTML += `
+                    <div class="card">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="margin:0;">${a.name}</h3>
+                            <span id="trend-${a.id}" class="value">--</span>
+                        </div>
+                        <div class="price" id="price-${a.id}">0.00</div>
+                        <div class="signal-box">
+                            <div><span class="label">Entry:</span> <div id="entry-${a.id}" class="value">--</div></div>
+                            <div><span class="label">GARCH:</span> <div id="garch-${a.id}" class="value" style="color:#fbbf24;">0.00%</div></div>
+                            <div><span class="label">StopLoss:</span> <div id="sl-${a.id}" class="value" style="color:#ef4444;">--</div></div>
+                            <div><span class="label">Target:</span> <div id="tp-${a.id}" class="value" style="color:#10b981;">--</div></div>
+                        </div>
+                        <div class="tv-widget">
+                            <iframe src="https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(a.sym)}&interval=D&theme=dark&style=1" width="100%" height="200" frameborder="0"></iframe>
+                        </div>
+                    </div>
+                `;
+            });
+        </script>
+    </div>
 
-# ─────────────────────────────────────────────
-#  همه ۱۲ بازار
-# ─────────────────────────────────────────────
-ALL_MARKETS = {
-    "AUD/JPY":  {"yahoo": "AUDJPY=X"},
-    "USD/JPY":  {"yahoo": "JPY=X"},
-    "EUR/USD":  {"yahoo": "EURUSD=X"},
-    "Gold":     {"yahoo": "GC=F"},
-    "Silver":   {"yahoo": "SI=F"},
-    "S&P500":   {"yahoo": "^GSPC"},
-    "DJ30":     {"yahoo": "^DJI"},
-    "NSDQ100":  {"yahoo": "^NDX"},
-    "RTY2000":  {"yahoo": "^RUT"},
-    "BTC":      {"yahoo": "BTC-USD"},
-    "ETH":      {"yahoo": "ETH-USD"},
-    "SOL":      {"yahoo": "SOL-USD"},
-}
-
-# ─────────────────────────────────────────────
-#  محاسبه ATR(14)
-# ─────────────────────────────────────────────
-def calculate_atr(df, period=14):
-    high  = df['High']
-    low   = df['Low']
-    close = df['Close']
-    tr1 = high - low
-    tr2 = abs(high - close.shift(1))
-    tr3 = abs(low  - close.shift(1))
-    tr  = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    return tr.rolling(period).mean().iloc[-1]
-
-# ─────────────────────────────────────────────
-#  تبدیل امن به float — رفع خطای BTC/ETH/SOL
-# ─────────────────────────────────────────────
-def to_float(val):
-    try:
-        if hasattr(val, 'iloc'):
-            val = val.iloc[0]
-        return float(val)
-    except Exception:
-        return 0.0
-
-# ─────────────────────────────────────────────
-#  تحلیل اصلی
-# ─────────────────────────────────────────────
-def analyze():
-    results = {}
-
-    for name, info in ALL_MARKETS.items():
-        try:
-            print(f"  ⏳ در حال تحلیل {name}...")
-
-            df = yf.download(info["yahoo"], period="60d", progress=False)
-
-            if df.empty or len(df) < 20:
-                print(f"  ⚠️  داده کافی برای {name} موجود نیست")
-                continue
-
-            close   = df['Close'].dropna()
-            returns = (100 * close.pct_change()).dropna()
-
-            # مدل GARCH(1,1)
-            model     = arch_model(returns, vol="Garch", p=1, q=1)
-            res       = model.fit(disp="off")
-            forecast  = res.forecast(horizon=1)
-            garch_vol = float(np.sqrt(forecast.variance.values[-1, 0]))
-
-            # ATR
-            atr = calculate_atr(df)
-
-            # قیمت — تبدیل امن برای همه بازارها
-            price      = to_float(close.iloc[-1])
-            prev_price = to_float(close.iloc[-2]) if len(close) > 1 else price
-            change_pct = round((price - prev_price) / prev_price * 100, 4) if prev_price != 0 else 0.0
-
-            # سیگنال
-            last_return = to_float(returns.iloc[-1])
-            signal      = "LONG" if last_return > 0 else "SHORT"
-            atr_val     = to_float(atr)
-            sl_distance = atr_val * 1.2
-            tp_distance = sl_distance * 2.5
-            sl = price - sl_distance if signal == "LONG" else price + sl_distance
-            tp = price + tp_distance if signal == "LONG" else price - tp_distance
-            rr = abs(tp - price) / abs(sl - price) if abs(sl - price) > 0 else 0
-
-            # تاریخچه ۵۰ کندل برای نمودار داشبورد
-            history = [round(to_float(v), 6) for v in close.tail(50).tolist()]
-
-            results[name] = {
-                "price":      round(price, 4),
-                "change":     change_pct,
-                "garch":      round(garch_vol, 4),
-                "signal":     signal,
-                "sl":         round(sl, 4),
-                "tp":         round(tp, 4),
-                "rr":         round(rr, 2),
-                "confidence": "⭐⭐⭐⭐" if rr > 2 else "⭐⭐⭐",
-                "history":    history,
-            }
-
-            print(f"  ✅ {name}: {signal}  قیمت={price:.4f}  GARCH={garch_vol:.4f}%  R/R={rr:.2f}")
-
-        except Exception as e:
-            print(f"  ❌ خطا در {name}: {e}")
-
-    return results
-
-# ─────────────────────────────────────────────
-#  ذخیره JSON
-# ─────────────────────────────────────────────
-def save_json(results):
-    output = {
-        "markets": [
-            {"symbol": k, **v}
-            for k, v in results.items()
-        ],
-        "updated": datetime.now().isoformat(),
-        "source":  "live"
-    }
-    with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
-    print(f"\n💾 فایل JSON ذخیره شد: {OUTPUT_JSON}")
-
-# ─────────────────────────────────────────────
-#  اجرا
-# ─────────────────────────────────────────────
-if __name__ == "__main__":
-    print("=" * 50)
-    print("🚀 GARCH Live Updater — شروع تحلیل")
-    print(f"🕐 زمان: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 50)
-
-    results = analyze()
-
-    if results:
-        save_json(results)
-        print(f"\n✅ {len(results)} بازار با موفقیت تحلیل شد.")
-    else:
-        print("\n⚠️  هیچ نتیجه‌ای دریافت نشد. اتصال اینترنت را بررسی کنید.")
+    <script>
+        function updateTime() {
+            const options = { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' };
+            document.getElementById('melbourne-clock').innerText = "Melbourne: " + new Intl.DateTimeFormat('en-AU', options).format(new Date());
+        }
+        setInterval(updateTime, 1000); updateTime();
+    </script>
+</body>
+</html>
