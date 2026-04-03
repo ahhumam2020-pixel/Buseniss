@@ -1,76 +1,64 @@
-<!DOCTYPE html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <title>داشبورد پیشرفته ۱۲ نماد</title>
-    <style>
-        body { background-color: #030712; color: white; font-family: 'Segoe UI', sans-serif; margin: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #111827; border-radius: 12px; margin-bottom: 20px; border: 1px solid #1f2937; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; }
-        .card { background: #111827; border-radius: 16px; padding: 15px; border: 1px solid #1f2937; transition: 0.3s; }
-        .card:hover { border-color: #38bdf8; }
-        .signal-box { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; padding: 10px; background: #1f2937; border-radius: 8px; font-size: 0.9rem; }
-        .label { color: #94a3b8; }
-        .value { font-weight: bold; font-family: monospace; }
-        .price { font-size: 24px; font-weight: bold; color: #38bdf8; margin: 5px 0; }
-        .tv-widget { height: 200px; border-radius: 8px; overflow: hidden; margin-top: 10px; }
-        #melbourne-clock { color: #10b981; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h2>تحلیل جامع ۱۲ نماد (GARCH + Technical)</h2>
-        <div id="melbourne-clock">Melbourne: 2026/04/01 22:41:39</div>
-    </div>
+import yfinance as yf
+from arch import arch_model
+import re, datetime, pytz, warnings
+import pandas as pd
+import numpy as np
 
-    <div class="grid" id="main-grid">
-        <script>
-            // لیست کامل ۱۲ نماد برای ساخت خودکار کارت‌ها
-            const assets = [
-                { id: 'btc', name: 'Bitcoin', sym: 'BITSTAMP:BTCUSD' },
-                { id: 'eth', name: 'Ethereum', sym: 'BINANCE:ETHUSD' },
-                { id: 'sol', name: 'Solana', sym: 'BINANCE:SOLUSD' },
-                { id: 'gold', name: 'Gold', sym: 'TVC:GOLD' },
-                { id: 'silver', name: 'Silver', sym: 'TVC:SILVER' },
-                { id: 'sp500', name: 'S&P 500', sym: 'FOREXCOM:SPX500' },
-                { id: 'nsdq100', name: 'Nasdaq 100', sym: 'CURRENCYCOM:US100' },
-                { id: 'dj30', name: 'Dow Jones 30', sym: 'FOREXCOM:DJI' },
-                { id: 'rty2000', name: 'Russell 2000', sym: 'TVC:RTY' },
-                { id: 'eurusd', name: 'EUR / USD', sym: 'FX_IDC:EURUSD' },
-                { id: 'usdjpy', name: 'USD / JPY', sym: 'FX_IDC:USDJPY' },
-                { id: 'audjpy', name: 'AUD / JPY', sym: 'OANDA:AUDJPY' }
-            ];
+warnings.filterwarnings("ignore")
+melbourne_tz = pytz.timezone('Australia/Melbourne')
 
-            const grid = document.getElementById('main-grid');
-            assets.forEach(a => {
-                grid.innerHTML += `
-                    <div class="card">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <h3 style="margin:0;">${a.name}</h3>
-                            <span id="trend-${a.id}" class="value">--</span>
-                        </div>
-                        <div class="price" id="price-${a.id}">0.00</div>
-                        <div class="signal-box">
-                            <div><span class="label">Entry:</span> <div id="entry-${a.id}" class="value">--</div></div>
-                            <div><span class="label">GARCH:</span> <div id="garch-${a.id}" class="value" style="color:#fbbf24;">0.00%</div></div>
-                            <div><span class="label">StopLoss:</span> <div id="sl-${a.id}" class="value" style="color:#ef4444;">--</div></div>
-                            <div><span class="label">Target:</span> <div id="tp-${a.id}" class="value" style="color:#10b981;">--</div></div>
-                        </div>
-                        <div class="tv-widget">
-                            <iframe src="https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(a.sym)}&interval=D&theme=dark&style=1" width="100%" height="200" frameborder="0"></iframe>
-                        </div>
-                    </div>
-                `;
-            });
-        </script>
-    </div>
+# لیست دارایی‌ها
+assets = {
+    'btc': 'BTC-USD', 'eth': 'ETH-USD', 'sol': 'SOL-USD',
+    'gold': 'GC=F', 'silver': 'SI=F', 'sp500': '^GSPC',
+    'nsdq100': '^IXIC', 'dj30': '^DJI', 'rty2000': '^RUT',
+    'eurusd': 'EURUSD=X', 'usdjpy': 'JPY=X', 'audjpy': 'AUDJPY=X'
+}
 
-    <script>
-        function updateTime() {
-            const options = { timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' };
-            document.getElementById('melbourne-clock').innerText = "Melbourne: " + new Intl.DateTimeFormat('en-AU', options).format(new Date());
-        }
-        setInterval(updateTime, 1000); updateTime();
-    </script>
-</body>
-</html>
+def start_analysis():
+    now = datetime.datetime.now(melbourne_tz)
+    print(f"🚀 شروع تحلیل | ملبورن: {now.strftime('%H:%M:%S')}")
+
+    try:
+        with open("index.html", "r", encoding="utf-8") as f:
+            html = f.read()
+    except FileNotFoundError:
+        print("❌ فایل پیدا نشد!"); return
+
+    # ۱. آپدیت زمان ملبورن
+    html = re.sub(r'Melbourne:.*?(?=<)', f'Melbourne: {now.strftime("%d/%m/%Y, %H:%M:%S")}', html, count=1)
+
+    for label, ticker in assets.items():
+        try:
+            data = yf.download(ticker, period="1mo", interval="1d", progress=False)
+            if data.empty: continue
+
+            last_price = float(data['Close'].iloc[-1])
+            returns = 100 * data['Close'].pct_change().dropna()
+            
+            # محاسبه نوسان
+            model = arch_model(returns, vol='Garch', p=1, q=1, dist='studentst')
+            res = model.fit(disp='off')
+            vol_val = np.sqrt(res.forecast(horizon=1).variance.values[-1, 0])
+
+            # --- اصلاح اصلی اینجاست: استفاده از count=1 ---
+            # جایگزینی قیمت مخصوص هر نماد
+            price_id = f'id="price-{label}"'
+            html = re.sub(rf'{price_id}>[\d\.,-]+', f'{price_id}>{last_price:,.2f}', html, count=1)
+            
+            # جایگزینی مقدار GARCH مخصوص هر نماد
+            garch_id = f'id="garch-{label}"'
+            html = re.sub(rf'{garch_id}>[\d\.,%]+', f'{garch_id}>{vol_val:.2f}%', html, count=1)
+
+            print(f"✅ {label.upper()} بروزرسانی شد: {last_price:,.2f}")
+
+        except Exception as e:
+            print(f"⚠️ خطا در {label}: {e}")
+
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(html)
+    
+    print("\n✨ اصلاح نهایی انجام شد. حالا فایل را در گیت‌هاب آپلود کنید.")
+
+if __name__ == "__main__":
+    start_analysis()
