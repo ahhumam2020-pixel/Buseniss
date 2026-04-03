@@ -1,64 +1,27 @@
-import yfinance as yf
-from arch import arch_model
-import re, datetime, pytz, warnings
-import pandas as pd
-import numpy as np
-
-warnings.filterwarnings("ignore")
-melbourne_tz = pytz.timezone('Australia/Melbourne')
-
-# لیست دارایی‌ها
-assets = {
-    'btc': 'BTC-USD', 'eth': 'ETH-USD', 'sol': 'SOL-USD',
-    'gold': 'GC=F', 'silver': 'SI=F', 'sp500': '^GSPC',
-    'nsdq100': '^IXIC', 'dj30': '^DJI', 'rty2000': '^RUT',
-    'eurusd': 'EURUSD=X', 'usdjpy': 'JPY=X', 'audjpy': 'AUDJPY=X'
-}
-
-def start_analysis():
-    now = datetime.datetime.now(melbourne_tz)
-    print(f"🚀 شروع تحلیل | ملبورن: {now.strftime('%H:%M:%S')}")
-
-    try:
-        with open("index.html", "r", encoding="utf-8") as f:
-            html = f.read()
-    except FileNotFoundError:
-        print("❌ فایل پیدا نشد!"); return
-
-    # ۱. آپدیت زمان ملبورن
-    html = re.sub(r'Melbourne:.*?(?=<)', f'Melbourne: {now.strftime("%d/%m/%Y, %H:%M:%S")}', html, count=1)
-
-    for label, ticker in assets.items():
-        try:
-            data = yf.download(ticker, period="1mo", interval="1d", progress=False)
-            if data.empty: continue
-
-            last_price = float(data['Close'].iloc[-1])
-            returns = 100 * data['Close'].pct_change().dropna()
-            
-            # محاسبه نوسان
-            model = arch_model(returns, vol='Garch', p=1, q=1, dist='studentst')
-            res = model.fit(disp='off')
-            vol_val = np.sqrt(res.forecast(horizon=1).variance.values[-1, 0])
-
-            # --- اصلاح اصلی اینجاست: استفاده از count=1 ---
-            # جایگزینی قیمت مخصوص هر نماد
-            price_id = f'id="price-{label}"'
-            html = re.sub(rf'{price_id}>[\d\.,-]+', f'{price_id}>{last_price:,.2f}', html, count=1)
-            
-            # جایگزینی مقدار GARCH مخصوص هر نماد
-            garch_id = f'id="garch-{label}"'
-            html = re.sub(rf'{garch_id}>[\d\.,%]+', f'{garch_id}>{vol_val:.2f}%', html, count=1)
-
-            print(f"✅ {label.upper()} بروزرسانی شد: {last_price:,.2f}")
-
-        except Exception as e:
-            print(f"⚠️ خطا در {label}: {e}")
-
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(html)
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>داشبورد آنالیز هوشمند آسیا</title>
+    <style>
+        body { font-family: sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .card { background: #1e293b; padding: 15px; border-radius: 12px; border: 1px solid #334155; }
+        .price { font-size: 1.5rem; color: #22c55e; font-weight: bold; margin: 10px 0; }
+        .garch { color: #f59e0b; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <h2>تحلیل جامع ۱۲ نماد (GARCH)</h2>
+    <p id="time">Melbourne: 04/04/2026, 08:56:36</p>
     
-    print("\n✨ اصلاح نهایی انجام شد. حالا فایل را در گیت‌هاب آپلود کنید.")
-
-if __name__ == "__main__":
-    start_analysis()
+    <div class="grid">
+        <div class="card"><h3>Bitcoin</h3><div class="price" id="price-btc">66,911.64</div><div class="garch" id="garch-btc">1.96%</div></div>
+        <div class="card"><h3>Ethereum</h3><div class="price" id="price-eth">2,057.76</div><div class="garch" id="garch-eth">2.79%</div></div>
+        <div class="card"><h3>Solana</h3><div class="price" id="price-sol">80.50</div><div class="garch" id="garch-sol">2.42%</div></div>
+        <div class="card"><h3>Gold</h3><div class="price" id="price-gold">4,651.50</div><div class="garch" id="garch-gold">2.52%</div></div>
+        <div class="card"><h3>S&P 500</h3><div class="price" id="price-sp500">6,582.69</div><div class="garch" id="garch-sp500">1.12%</div></div>
+        <div class="card"><h3>Nasdaq 100</h3><div class="price" id="price-nsdq100">21,879.18</div><div class="garch" id="garch-nsdq100">1.48%</div></div>
+    </div>
+</body>
+</html>
