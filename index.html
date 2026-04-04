@@ -1,27 +1,93 @@
-<!DOCTYPE html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <title>داشبورد آنالیز هوشمند آسیا</title>
-    <style>
-        body { font-family: sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
-        .card { background: #1e293b; padding: 15px; border-radius: 12px; border: 1px solid #334155; }
-        .price { font-size: 1.5rem; color: #22c55e; font-weight: bold; margin: 10px 0; }
-        .garch { color: #f59e0b; font-size: 0.9rem; }
-    </style>
-</head>
-<body>
-    <h2>تحلیل جامع ۱۲ نماد (GARCH)</h2>
-    <p id="time">Melbourne: 04/04/2026, 18:38:30</p>
-    
-    <div class="grid">
-        <div class="card"><h3>Bitcoin</h3><div class="price" id="price-btc">66,950.30</div><div class="garch" id="garch-btc">2.20%</div></div>
-        <div class="card"><h3>Ethereum</h3><div class="price" id="price-eth">2,052.77</div><div class="garch" id="garch-eth">2.64%</div></div>
-        <div class="card"><h3>Solana</h3><div class="price" id="price-sol">80.25</div><div class="garch" id="garch-sol">2.16%</div></div>
-        <div class="card"><h3>Gold</h3><div class="price" id="price-gold">4,651.50</div><div class="garch" id="garch-gold">2.52%</div></div>
-        <div class="card"><h3>S&P 500</h3><div class="price" id="price-sp500">6,582.69</div><div class="garch" id="garch-sp500">1.12%</div></div>
-        <div class="card"><h3>Nasdaq 100</h3><div class="price" id="price-nsdq100">21,879.18</div><div class="garch" id="garch-nsdq100">1.48%</div></div>
-    </div>
-</body>
-</html>
+
+    <!DOCTYPE html>
+    <html lang="fa" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>Asia Pro Dashboard</title>
+        <style>
+            body { background:#0f172a; color:white; font-family:tahoma; margin:0; padding:20px; }
+            .container { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:20px; }
+            .chart-box { height:550px; background:#1e293b; border-radius:15px; padding:10px; border:1px solid #374151; }
+        </style>
+    </head>
+    <body>
+        <div style="text-align:center; margin-bottom:20px;">
+            <h1 style="margin:0; color:#3b82f6;">داشبورد آنالیز هوشمند آسیا</h1>
+            <div style="background:#334155; display:inline-block; padding:8px 20px; border-radius:20px; margin-top:10px;">
+                آخرین بروزرسانی ملبورن: <b style="color:#fbbf24;">2026-04-05 07:38:20</b>
+            </div>
+        </div>
+        <div class="container">
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">BTC</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">67,260.01</div>
+                <div style="color:#10b981; font-size:12px;">+0.00%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">ETH</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">2,066.64</div>
+                <div style="color:#10b981; font-size:12px;">+0.20%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">SOL</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">80.90</div>
+                <div style="color:#10b981; font-size:12px;">+0.15%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">GOLD</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">4,702.70</div>
+                <div style="color:#10b981; font-size:12px;">+0.10%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">SILVER</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">73.17</div>
+                <div style="color:#10b981; font-size:12px;">+0.54%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">SP500</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">6,581.56</div>
+                <div style="color:#10b981; font-size:12px;">+0.20%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">NSDQ100</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">21,874.19</div>
+                <div style="color:#10b981; font-size:12px;">+0.29%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">DJ30</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">46,504.51</div>
+                <div style="color:#10b981; font-size:12px;">+0.09%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">RTY2000</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">2,530.37</div>
+                <div style="color:#10b981; font-size:12px;">+0.24%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">EURUSD</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">1.15</div>
+                <div style="color:#10b981; font-size:12px;">+0.00%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">USDJPY</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">159.63</div>
+                <div style="color:#10b981; font-size:12px;">+0.01%</div>
+            </div>
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:180px; text-align:center;">
+                <div style="font-size:14px; color:#9ca3af;">AUDJPY</div>
+                <div style="color:#10b981; font-size:20px; font-weight:bold; margin:5px 0;">110.03</div>
+                <div style="color:#10b981; font-size:12px;">+0.02%</div>
+            </div></div>
+        <div class="chart-box">
+            <div id="tv_chart" style="height:100%;"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+            <script type="text/javascript">
+            new TradingView.widget({
+              "autosize": true, "symbol": "BINANCE:BTCUSDT", "interval": "D",
+              "timezone": "Australia/Melbourne", "theme": "dark", "style": "1",
+              "locale": "en", "container_id": "tv_chart"
+            });
+            </script>
+        </div>
+    </body>
+    </html>
