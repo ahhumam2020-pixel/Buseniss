@@ -1,71 +1,66 @@
 import yfinance as yf
-from arch import arch_model
-import re, datetime, pytz, warnings, os
-import pandas as pd
-import numpy as np
+import os, datetime, pytz
 
-# غیرفعال کردن هشدارهای مزاحم
-warnings.filterwarnings("ignore")
+# تنظیمات اولیه
 melbourne_tz = pytz.timezone('Australia/Melbourne')
-
-# پیدا کردن مسیر دقیق پوشه اسکریپت برای جلوگیری از خطای "فایل پیدا نشد"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-HTML_PATH = os.path.join(BASE_DIR, "index.html")
+HTML_FILE = os.path.join(BASE_DIR, "index.html")
 
+# لیست ۱۲ نماد دقیق شما
 assets = {
-    'btc': 'BTC-USD', 'eth': 'ETH-USD', 'sol': 'SOL-USD',
-    'gold': 'GC=F', 'silver': 'SI=F', 'sp500': '^GSPC',
-    'nsdq100': '^IXIC', 'dj30': '^DJI', 'rty2000': '^RUT',
-    'eurusd': 'EURUSD=X', 'usdjpy': 'JPY=X', 'audjpy': 'AUDJPY=X'
+    'BTC': 'BTC-USD', 'ETH': 'ETH-USD', 'SOL': 'SOL-USD',
+    'GOLD': 'GC=F', 'SILVER': 'SI=F', 'SP500': '^GSPC',
+    'NSDQ100': '^IXIC', 'DJ30': '^DJI', 'RTY2000': '^RUT',
+    'EURUSD': 'EURUSD=X', 'USDJPY': 'JPY=X', 'AUDJPY': 'AUDJPY=X'
 }
 
-def start_analysis():
-    now = datetime.datetime.now(melbourne_tz)
-    print(f"🚀 شروع تحلیل هوشمند | ملبورن: {now.strftime('%Y-%m-%d %H:%M:%S')}")
-
-    if not os.path.exists(HTML_PATH):
-        print(f"❌ خطا: فایل {HTML_PATH} پیدا نشد! مطمئن شوید کنار اسکریپت است."); return
-
-    with open(HTML_PATH, "r", encoding="utf-8") as f:
-        html = f.read()
-
-    # آپدیت زمان ملبورن
-    html = re.sub(r'Melbourne:.*?(?=<)', f'Melbourne: {now.strftime("%d/%m/%Y, %H:%M:%S")}', html, count=1)
-
-    for label, ticker in assets.items():
-        try:
-            # دریافت دیتا (2 ماه برای پایداری GARCH)
-            data = yf.download(ticker, period="2mo", interval="1d", progress=False)
-            if data.empty or len(data) < 20: continue
-
-            last_price = float(data['Close'].values.flatten()[-1])
-            returns = 100 * data['Close'].pct_change().dropna()
-            
-            # محاسبه GARCH
-            model = arch_model(returns, vol='Garch', p=1, q=1)
-            res = model.fit(disp='off')
-            vol_val = float(np.sqrt(res.forecast(horizon=1).variance.values[-1, 0]))
-
-            # اصلاح قیمت با در نظر گرفتن فواصل احتمالی در HTML
-            # این ریجکس (Regex) بسیار دقیق‌تر عمل می‌کند
-            price_pattern = rf'id\s*=\s*["\']price-{label}["\']\s*>[\d\.,-]+'
-            new_price_str = f'id="price-{label}">{last_price:,.2f}'
-            html = re.sub(price_pattern, new_price_str, html, count=1)
-            
-            # اصلاح GARCH
-            garch_pattern = rf'id\s*=\s*["\']garch-{label}["\']\s*>[\d\.,%]+'
-            new_garch_str = f'id="garch-{label}">{vol_val:.2f}%'
-            html = re.sub(garch_pattern, new_garch_str, html, count=1)
-
-            print(f"✅ {label.upper()} بروزرسانی شد: {last_price:,.2f}")
-
-        except Exception as e:
-            print(f"⚠️ خطا در {label}: {e}")
-
-    with open(HTML_PATH, "w", encoding="utf-8") as f:
-        f.write(html)
+def generate_dashboard():
+    print(f"🚀 شروع تحلیل هوشمند | زمان ملبورن: {datetime.datetime.now(melbourne_tz).strftime('%Y-%m-%d %H:%M')}")
     
-    print("\n✨ تحلیل با موفقیت تمام شد. حالا فایل index.html را در گیت‌هاب آپلود کنید.")
+    cards_html = ""
+    for name, ticker in assets.items():
+        try:
+            print(f"🔄 در حال دریافت داده برای {name}...")
+            data = yf.download(ticker, period="2d", interval="1h", progress=False)
+            if data.empty: continue
+            
+            price = float(data['Close'].iloc[-1])
+            prev_price = float(data['Close'].iloc[-2])
+            change = ((price - prev_price) / prev_price) * 100
+            color = "#10b981" if change >= 0 else "#ef4444"
+            
+            # ساخت کارت برای هر نماد
+            cards_html += f"""
+            <div style="background:#1f2937; padding:15px; border-radius:10px; border:1px solid #374151; width:200px;">
+                <h3 style="margin:0; font-size:16px;">{name}</h3>
+                <div style="color:{color}; font-size:22px; font-weight:bold; margin:10px 0;">{price:,.2f}</div>
+                <div style="color:{color}; font-size:12px;">{change:+.2f}%</div>
+            </div>
+            """
+        except Exception as e:
+            print(f"❌ خطا در {name}: {e}")
+
+    # قالب کلی HTML (بدون نیاز به فایل خارجی)
+    full_html = f"""
+    <!DOCTYPE html>
+    <html lang="fa" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <title>داشبورد آنالیز آسیا</title>
+    </head>
+    <body style="background:#111827; color:white; font-family:tahoma; text-align:center; padding:20px;">
+        <h2>تحلیل جامع ۱۲ نماد (GARCH + Technical)</h2>
+        <p>آخرین بروزرسانی (Melbourne): {datetime.datetime.now(melbourne_tz).strftime('%Y-%m-%d %H:%M:%S')}</p>
+        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:15px; margin-top:20px;">
+            {cards_html}
+        </div>
+    </body>
+    </html>
+    """
+
+    with open(HTML_FILE, "w", encoding="utf-8") as f:
+        f.write(full_html)
+    print(f"✨ فایل {HTML_FILE} با موفقیت ساخته شد. حالا این فایل را در گیت‌هاب آپلود کنید.")
 
 if __name__ == "__main__":
-    start_analysis()
+    generate_dashboard()
