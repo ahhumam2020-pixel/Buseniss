@@ -5,6 +5,7 @@ melbourne_tz = pytz.timezone('Australia/Melbourne')
 HTML_FILE = r"C:\Users\ahhum\OneDrive\Documents\Business\Asia\index.html"
 
 # لیست کامل دارایی‌ها با اصلاح نزدک و منبع جدید برای راسل
+# این همان بخشی است که دنبالش می‌گردید
 assets = {
     'BTC': {'ticker': 'BTC-USD', 'tv_symbol': 'BINANCE:BTCUSDT'},
     'ETH': {'ticker': 'ETH-USD', 'tv_symbol': 'BINANCE:ETHUSDT'},
@@ -12,9 +13,9 @@ assets = {
     'GOLD': {'ticker': 'GC=F', 'tv_symbol': 'CAPITALCOM:GOLD'},
     'SILVER': {'ticker': 'SI=F', 'tv_symbol': 'CAPITALCOM:SILVER'},
     'SP500': {'ticker': '^GSPC', 'tv_symbol': 'CAPITALCOM:US500'},
-    'NSDQ100': {'ticker': '^IXIC', 'tv_symbol': 'CAPITALCOM:US100'},  # نزدک برگشت
+    'NSDQ100': {'ticker': '^IXIC', 'tv_symbol': 'CAPITALCOM:US100'},     # نزدک اصلاح شده
     'DJ30': {'ticker': '^DJI', 'tv_symbol': 'CAPITALCOM:US30'},
-    'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'TVC:RTY'},           # منبع تضمینی برای راسل
+    'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'OANDA:US2000'},         # راسل اصلاح شده
     'EURUSD': {'ticker': 'EURUSD=X', 'tv_symbol': 'CAPITALCOM:EURUSD'},
     'USDJPY': {'ticker': 'JPY=X', 'tv_symbol': 'CAPITALCOM:USDJPY'},
     'AUDJPY': {'ticker': 'AUDJPY=X', 'tv_symbol': 'CAPITALCOM:AUDJPY'}
