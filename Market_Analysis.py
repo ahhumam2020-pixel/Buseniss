@@ -15,7 +15,7 @@ assets = {
     'SP500': {'ticker': '^GSPC', 'tv_symbol': 'CAPITALCOM:US500'},
     'NSDQ100': {'ticker': '^IXIC', 'tv_symbol': 'CAPITALCOM:US100'},     # نزدک اصلاح شده
     'DJ30': {'ticker': '^DJI', 'tv_symbol': 'CAPITALCOM:US30'},
-    'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'OANDA:US2000'},         # راسل اصلاح شده
+    'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'AMEX:IWM'},         # راسل اصلاح شده
     'EURUSD': {'ticker': 'EURUSD=X', 'tv_symbol': 'CAPITALCOM:EURUSD'},
     'USDJPY': {'ticker': 'JPY=X', 'tv_symbol': 'CAPITALCOM:USDJPY'},
     'AUDJPY': {'ticker': 'AUDJPY=X', 'tv_symbol': 'CAPITALCOM:AUDJPY'}
