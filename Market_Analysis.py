@@ -13,7 +13,7 @@ assets = {
     'GOLD': {'ticker': 'GC=F', 'tv_symbol': 'CAPITALCOM:GOLD'},
     'SP500': {'ticker': '^GSPC', 'tv_symbol': 'CAPITALCOM:US500'},
     'NSDQ100': {'ticker': '^IXIC', 'tv_symbol': 'CAPITALCOM:US100'},
-    'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'CAPITALCOM:US2000'}
+    'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'AMEX:IWM'},
 }
 
 def generate_dashboard():
