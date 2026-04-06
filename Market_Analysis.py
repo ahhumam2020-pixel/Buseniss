@@ -6,21 +6,21 @@ import pandas as pd
 melbourne_tz = pytz.timezone('Australia/Melbourne')
 HTML_FILE = r"C:\Users\ahhum\OneDrive\Documents\Business\Asia\index.html"
 
-# لیست دارایی‌ها با اصلاح دقیق نمادهای تریدینگ‌ویو (tv_symbol)
+# لیست دارایی‌ها با کدهای تضمین شده برای تریدینگ‌ویو (TVC Standard)
 assets = {
     'BTC': {'ticker': 'BTC-USD', 'tv_symbol': 'BINANCE:BTCUSDT'},
     'ETH': {'ticker': 'ETH-USD', 'tv_symbol': 'BINANCE:ETHUSDT'},
-    'GOLD': {'ticker': 'GC=F', 'tv_symbol': 'OANDA:XAUUSD'},
-    'SILVER': {'ticker': 'SI=F', 'tv_symbol': 'OANDA:XAGUSD'},
+    'GOLD': {'ticker': 'GC=F', 'tv_symbol': 'TVC:GOLD'},
+    'SILVER': {'ticker': 'SI=F', 'tv_symbol': 'TVC:SILVER'},
     'CRUDE_OIL': {'ticker': 'CL=F', 'tv_symbol': 'TVC:USOIL'}, # اصلاح شد
-    'SP500': {'ticker': '^GSPC', 'tv_symbol': 'CAPITALCOM:US500'},
-    'NSDQ100': {'ticker': '^IXIC', 'tv_symbol': 'CAPITALCOM:US100'}, # اصلاح شد
-    'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'CAPITALCOM:US2000'}, # اصلاح شد
-    'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'CAPITALCOM:AUS200'}, # اصلاح شد
-    'CHINA50': {'ticker': 'FXI', 'tv_symbol': 'CAPITALCOM:CHINA50'}, # اصلاح شد
-    'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'TVC:NI225'}, # اصلاح شد به منبع TVC
-    'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'CAPITALCOM:DE40'},
-    'UK100': {'ticker': '^FTSE', 'tv_symbol': 'CAPITALCOM:UK100'}
+    'SP500': {'ticker': '^GSPC', 'tv_symbol': 'TVC:SPX'}, # اصلاح شد
+    'NSDQ100': {'ticker': '^NDX', 'tv_symbol': 'TVC:NDX'}, # اصلاح شد
+    'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'TVC:RTY'}, # اصلاح شد
+    'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'TVC:AS200'}, # اصلاح شد
+    'CHINA50': {'ticker': 'FXI', 'tv_symbol': 'FX_IDC:CN50'}, # اصلاح شد
+    'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'TVC:NI225'}, # اصلاح شد
+    'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'TVC:DAX'}, # اصلاح شد
+    'UK100': {'ticker': '^FTSE', 'tv_symbol': 'TVC:UKX'} # اصلاح شد
 }
 
 def generate_dashboard():
@@ -29,11 +29,10 @@ def generate_dashboard():
     
     for name, info in assets.items():
         try:
-            # دریافت داده‌ها برای محاسبات داشبورد
+            # دریافت دیتا (یاهو فایننس)
             data = yf.download(info['ticker'], period="5d", interval="1h", progress=False)
             if data.empty: continue
             
-            # متد ایمن برای استخراج قیمت
             def get_val(col, pos):
                 v = data[col].iloc[pos]
                 return float(v.iloc[0]) if isinstance(v, pd.Series) else float(v)
@@ -42,7 +41,6 @@ def generate_dashboard():
             prev_price = get_val('Close', -2)
             change = ((price - prev_price) / prev_price) * 100
             
-            # محاسبات مدیریت ریسک
             high_s = data['High'].iloc[:,0] if data['High'].ndim > 1 else data['High']
             low_s = data['Low'].iloc[:,0] if data['Low'].ndim > 1 else data['Low']
             atr = (high_s - low_s).mean()
@@ -59,8 +57,8 @@ def generate_dashboard():
                 <div class="asset-price" style="color:{color}">{price:,.2f}</div>
                 <div class="asset-change" style="color:{color}">{change:+.2f}%</div>
                 <div class="stats-container">
-                    <div class="stat-row"><span>ATR Vol:</span> <span class="val">{volatility:.2f}%</span></div>
-                    <div class="stat-row"><span>Entry:</span> <span class="val">{price:,.2f}</span></div>
+                    <div class="stat-row"><span>نوسان:</span> <span class="val">{volatility:.2f}%</span></div>
+                    <div class="stat-row"><span>ورود:</span> <span class="val">{price:,.2f}</span></div>
                     <div class="stat-row"><span>TP:</span> <span class="val" style="color:#10b981">{take_profit:,.2f}</span></div>
                     <div class="stat-row"><span>SL:</span> <span class="val" style="color:#ef4444">{stop_loss:,.2f}</span></div>
                 </div>
@@ -76,7 +74,7 @@ def generate_dashboard():
             body {{ background:#0f172a; color:white; font-family:Tahoma, Arial; padding:15px; margin:0; }}
             .container {{ display:grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap:10px; margin-bottom:20px; }}
             .asset-card {{ background:#1e293b; padding:12px; border-radius:10px; cursor:pointer; border:1px solid #334155; transition:0.3s; }}
-            .asset-card:hover {{ border-color:#3b82f6; background:#26334d; transform: translateY(-3px); }}
+            .asset-card:hover {{ border-color:#3b82f6; background:#26334d; transform: scale(1.02); }}
             .asset-name {{ color:#9ca3af; font-size:11px; font-weight:bold; }}
             .asset-price {{ font-size:18px; font-weight:bold; margin:2px 0; }}
             .asset-change {{ font-size:12px; margin-bottom:8px; }}
@@ -90,7 +88,7 @@ def generate_dashboard():
     <body>
         <div style="text-align:center; padding-bottom:15px;">
             <h2 style="color:#3b82f6; margin:5px 0;">Asia Intelligence Analysis Dashboard</h2>
-            <div style="font-size:10px; color:#64748b;">Update: {now_time} (Melbourne)</div>
+            <div style="font-size:10px; color:#64748b;">Melbourne Time: {now_time}</div>
         </div>
         <div class="container">{cards_html}</div>
         <div class="chart-box" id="tv_chart_container"></div>
@@ -104,13 +102,13 @@ def generate_dashboard():
                     "hide_side_toolbar": false, "enable_publishing": false, "allow_symbol_change": true
                 }});
             }}
-            // پیش‌فرض: نزدک
-            changeChart('CAPITALCOM:US100');
+            // پیش‌فرض: نزدک ۱۰۰
+            changeChart('TVC:NDX');
         </script>
     </body>
     </html>"""
 
     with open(HTML_FILE, "w", encoding="utf-8") as f: f.write(full_html)
-    print(f"✅ تمام نمودارها با کدهای استاندارد TradingView در ساعت {now_time} اصلاح شدند.")
+    print(f"✅ تمام نمودارها با کدهای مرجع TVC در ساعت {now_time} اصلاح شدند.")
 
 if __name__ == "__main__": generate_dashboard()
