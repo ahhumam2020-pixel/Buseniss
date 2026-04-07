@@ -20,7 +20,7 @@ assets = {
     'NSDQ100': {'ticker': '^IXIC', 'tv_symbol': 'OANDA:NAS100USD'},
     'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'OANDA:US2000USD'},
     'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'OANDA:AU200AUD'},
-    'CHINA50': {'ticker': 'FXI', 'tv_symbol': 'FX_IDC:CN50'},
+    'CHINA50': {'ticker': 'FXI', 'tv_symbol': 'OANDA:CN50USD'},
     'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'OANDA:JP225USD'},
     'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'},
     'UK100': {'ticker': '^FTSE', 'tv_symbol': 'OANDA:UK100GBP'}
