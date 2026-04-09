@@ -48,6 +48,17 @@ def generate_dashboard():
             stop_loss = price - (atr * 1.5)
             take_profit = price + (atr * 3.0)
             
+            # --- منطق جدید وضعیت ورود بر اساس نوسان و پرایس‌اکشن ---
+            if volatility < 8:
+                entry_status = "Immediate Market Entry"
+                status_class = "status-immediate"
+            elif 8 <= volatility < 15:
+                entry_status = "Conditional Market Entry"
+                status_class = "status-conditional"
+            else:
+                entry_status = "No Immediate Setup"
+                status_class = "status-none"
+            
             color = "#10b981" if change >= 0 else "#ef4444"
             
             cards_html += f"""
@@ -57,9 +68,10 @@ def generate_dashboard():
                     <span class="asset-change" style="color:{color}">{change:+.2f}%</span>
                 </div>
                 <div class="asset-price" style="color:{color}">{price:,.2f}</div>
+                <div class="entry-box {status_class}">{entry_status}</div>
                 <div class="stats-grid">
                     <div class="stat-item"><span>نوسان:</span><span class="val">{volatility:.2f}%</span></div>
-                    <div class="stat-item"><span>ورود:</span><span class="val">{price:,.2f}</span></div>
+                    <div class="stat-item"><span>قیمت فعلی:</span><span class="val">{price:,.2f}</span></div>
                     <div class="stat-item"><span>TP:</span><span class="val" style="color:#10b981">{take_profit:,.2f}</span></div>
                     <div class="stat-item"><span>SL:</span><span class="val" style="color:#ef4444">{stop_loss:,.2f}</span></div>
                 </div>
@@ -74,22 +86,29 @@ def generate_dashboard():
         <style>
             body {{ background:#0a0f1e; color:white; font-family:Tahoma, Arial; margin:0; padding:15px; }}
             .header {{ text-align:center; margin-bottom:15px; border-bottom:1px solid #1e293b; padding-bottom:10px; }}
-            .container {{ display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px; margin-bottom:15px; }}
-            .asset-card {{ background:#161d31; padding:10px; border-radius:8px; cursor:pointer; border:1px solid #283046; transition:0.2s; }}
+            .container {{ display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:12px; margin-bottom:15px; }}
+            .asset-card {{ background:#161d31; padding:12px; border-radius:10px; cursor:pointer; border:1px solid #283046; transition:0.2s; }}
             .asset-card:hover {{ border-color:#3b82f6; background:#1e2746; }}
-            .asset-header {{ display:flex; justify-content:space-between; font-size:10px; font-weight:bold; margin-bottom:4px; }}
+            .asset-header {{ display:flex; justify-content:space-between; font-size:11px; font-weight:bold; margin-bottom:4px; }}
             .asset-name {{ color:#b4b7bd; }}
-            .asset-price {{ font-size:17px; font-weight:bold; margin-bottom:6px; }}
-            .stats-grid {{ display:grid; grid-template-columns: 1fr 1fr; gap:4px; border-top:1px solid #283046; padding-top:6px; }}
+            .asset-price {{ font-size:18px; font-weight:bold; margin-bottom:8px; text-align:left; }}
+            
+            /* استایل وضعیت‌های ورود */
+            .entry-box {{ font-size:9.5px; padding:4px; border-radius:4px; text-align:center; margin-bottom:8px; font-weight:bold; }}
+            .status-immediate {{ background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }}
+            .status-conditional {{ background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }}
+            .status-none {{ background: rgba(107, 114, 128, 0.2); color: #9ca3af; border: 1px solid #4b5563; }}
+
+            .stats-grid {{ display:grid; grid-template-columns: 1fr 1fr; gap:6px; border-top:1px solid #283046; padding-top:8px; }}
             .stat-item {{ display:flex; flex-direction:column; font-size:9px; }}
             .stat-item span {{ color:#676d7d; }}
             .stat-item .val {{ color:#d0d2d6; font-weight:bold; }}
             .chart-box {{ height:600px; background:#161d31; border-radius:12px; border:1px solid #283046; overflow:hidden; }}
         </style>
-    </head>
+    </head><meta http-equiv="refresh" content="1800">
     <body>
         <div class="header">
-            <h3 style="margin:0; color:#3b82f6;">Asia Intelligence Pro Dashboard</h3>
+            <h3 style="margin:0; color:#3b82f6;">Asia Intelligence Pro Dashboard V3</h3>
             <div style="font-size:11px; color:#676d7d; margin-top:5px;">بروزرسانی (ملبورن): {now_time}</div>
         </div>
         <div class="container">{cards_html}</div>
@@ -103,12 +122,12 @@ def generate_dashboard():
                     "enable_publishing": false, "hide_top_toolbar": false, "container_id": "tv_chart_container"
                 }});
             }}
-            changeChart('OANDA:NAS100USD'); // پیش‌فرض: نزدک ۱۰۰
+            changeChart('OANDA:NAS100USD');
         </script>
     </body>
     </html>"""
 
     with open(HTML_FILE, "w", encoding="utf-8") as f: f.write(full_html)
-    print(f"✅ داشبورد در GitHub با موفقیت آپدیت شد. زمان: {now_time}")
+    print(f"✅ داشبورد با منطق جدید ورود آپدیت شد. زمان: {now_time}")
 
 if __name__ == "__main__": generate_dashboard()
