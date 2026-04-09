@@ -1,4 +1,3 @@
-
 import yfinance as yf
 import datetime, pytz
 import pandas as pd
@@ -10,20 +9,20 @@ melbourne_tz = pytz.timezone('Australia/Melbourne')
 # برای گیت‌هاب، فایل را در همان پوشه اصلی ذخیره می‌کنیم
 HTML_FILE = "index.html"
 
-# لیست جامع ۱۳ دارایی
+# لیست جامع ۱۳ دارایی با نمادهای اصلاح شده برای انطباق با TradingView/eToro
 assets = {
     'BTC': {'ticker': 'BTC-USD', 'tv_symbol': 'BINANCE:BTCUSDT'},
     'ETH': {'ticker': 'ETH-USD', 'tv_symbol': 'BINANCE:ETHUSDT'},
     'GOLD': {'ticker': 'GC=F', 'tv_symbol': 'TVC:GOLD'},
     'SILVER': {'ticker': 'SI=F', 'tv_symbol': 'TVC:SILVER'},
     'CRUDE_OIL': {'ticker': 'CL=F', 'tv_symbol': 'TVC:USOIL'},
-    'SP500': {'ticker': '^GSPC', 'tv_symbol': 'OANDA:SPX500USD'},
-    'NSDQ100': {'ticker': '^IXIC', 'tv_symbol': 'OANDA:NAS100USD'},
-    'RTY2000': {'ticker': '^RUT', 'tv_symbol': 'OANDA:US2000USD'},
+    'NSDQ100': {'ticker': 'NQ=F', 'tv_symbol': 'CAPITALCOM:US100'}, # نزدک ۱۰۰ فیوچرز - منطبق با قیمت ۲۵هزار
+    'SP500': {'ticker': 'ES=F', 'tv_symbol': 'CAPITALCOM:US500'}, # اس‌اند‌پی ۵۰۰ فیوچرز
+    'RTY2000': {'ticker': 'RTY=F', 'tv_symbol': 'OANDA:US2000USD'},
     'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'OANDA:AU200AUD'},
     'CHINA50': {'ticker': 'FXI', 'tv_symbol': 'OANDA:CN50USD'},
     'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'OANDA:JP225USD'},
-    'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'},
+    'GERMANY40': {'ticker': 'DAX', 'tv_symbol': 'OANDA:DE30EUR'},
     'UK100': {'ticker': '^FTSE', 'tv_symbol': 'OANDA:UK100GBP'}
 }
 
@@ -33,6 +32,7 @@ def generate_dashboard():
     
     for name, info in assets.items():
         try:
+            # دانلود داده‌ها با نمادهای جدید
             data = yf.download(info['ticker'], period="5d", interval="1h", progress=False)
             if data.empty: continue
             
@@ -53,11 +53,9 @@ def generate_dashboard():
             if trend_direction == "Long":
                 stop_loss = price - (atr * 1.5)
                 take_profit = price + (atr * 3.0)
-                entry_color = "#10b981" # سبز برای خرید
             else:
-                stop_loss = price + (atr * 1.5) # در فروش، حد ضرر بالاتر است
-                take_profit = price - (atr * 3.0) # در فروش، حد سود پایین‌تر است
-                entry_color = "#ef4444" # قرمز برای فروش
+                stop_loss = price + (atr * 1.5)
+                take_profit = price - (atr * 3.0)
 
             # --- تعیین وضعیت ورود ترکیبی ---
             if volatility < 8:
@@ -104,7 +102,6 @@ def generate_dashboard():
             .asset-name {{ color:#b4b7bd; }}
             .asset-price {{ font-size:18px; font-weight:bold; margin-bottom:8px; text-align:left; }}
             
-            /* استایل وضعیت‌های ورود */
             .entry-box {{ font-size:9px; padding:4px; border-radius:4px; text-align:center; margin-bottom:8px; font-weight:bold; text-transform: uppercase; }}
             .status-immediate {{ background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }}
             .status-short-immediate {{ background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }}
@@ -134,12 +131,12 @@ def generate_dashboard():
                     "enable_publishing": false, "hide_top_toolbar": false, "container_id": "tv_chart_container"
                 }});
             }}
-            changeChart('OANDA:NAS100USD');
+            changeChart('NQ=F');
         </script>
     </body>
     </html>"""
 
     with open(HTML_FILE, "w", encoding="utf-8") as f: f.write(full_html)
-    print(f"✅ داشبورد دوطرفه (Buy/Sell) با موفقیت آپدیت شد. زمان: {now_time}")
+    print(f"✅ داشبورد با قیمت‌های جهانی همسان‌سازی شد. زمان: {now_time}")
 
 if __name__ == "__main__": generate_dashboard()
