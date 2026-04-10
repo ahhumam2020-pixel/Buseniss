@@ -1,3 +1,4 @@
+
 import yfinance as yf
 import datetime, pytz
 import pandas as pd
@@ -5,24 +6,23 @@ import os
 
 # تنظیمات منطقه زمانی ملبورن
 melbourne_tz = pytz.timezone('Australia/Melbourne')
-
-# برای گیت‌هاب، فایل را در همان پوشه اصلی ذخیره می‌کنیم
 HTML_FILE = "index.html"
 
-# لیست جامع ۱۳ دارایی با نمادهای اصلاح شده برای انطباق با TradingView/eToro
+# لیست اصلاح شده برای انطباق ۱۰۰٪ با قیمت‌های TradingView و مراجع علمی
 assets = {
     'BTC': {'ticker': 'BTC-USD', 'tv_symbol': 'BINANCE:BTCUSDT'},
     'ETH': {'ticker': 'ETH-USD', 'tv_symbol': 'BINANCE:ETHUSDT'},
     'GOLD': {'ticker': 'GC=F', 'tv_symbol': 'TVC:GOLD'},
     'SILVER': {'ticker': 'SI=F', 'tv_symbol': 'TVC:SILVER'},
     'CRUDE_OIL': {'ticker': 'CL=F', 'tv_symbol': 'TVC:USOIL'},
-    'NSDQ100': {'ticker': 'NQ=F', 'tv_symbol': 'CAPITALCOM:US100'}, # نزدک ۱۰۰ فیوچرز - منطبق با قیمت ۲۵هزار
-    'SP500': {'ticker': 'ES=F', 'tv_symbol': 'CAPITALCOM:US500'}, # اس‌اند‌پی ۵۰۰ فیوچرز
+    'NSDQ100': {'ticker': 'NQ=F', 'tv_symbol': 'CAPITALCOM:US100'},
+    'SP500': {'ticker': 'ES=F', 'tv_symbol': 'CAPITALCOM:US500'},
+    'DOWJONES': {'ticker': 'YM=F', 'tv_symbol': 'CAPITALCOM:US30'}, # بازگشت داوجونز به لیست
     'RTY2000': {'ticker': 'RTY=F', 'tv_symbol': 'OANDA:US2000USD'},
     'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'OANDA:AU200AUD'},
-    'CHINA50': {'ticker': 'FXI', 'tv_symbol': 'OANDA:CN50USD'},
+    'CHINA50': {'ticker': '^FTXIN40', 'tv_symbol': 'FX_IDC:CHINAA50'}, # اصلاح قیمت به محدوده 15,000
     'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'OANDA:JP225USD'},
-    'GERMANY40': {'ticker': 'DAX', 'tv_symbol': 'OANDA:DE30EUR'},
+    'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'}, # اصلاح قیمت به محدوده 24,000
     'UK100': {'ticker': '^FTSE', 'tv_symbol': 'OANDA:UK100GBP'}
 }
 
@@ -32,7 +32,6 @@ def generate_dashboard():
     
     for name, info in assets.items():
         try:
-            # دانلود داده‌ها با نمادهای جدید
             data = yf.download(info['ticker'], period="5d", interval="1h", progress=False)
             if data.empty: continue
             
@@ -46,10 +45,8 @@ def generate_dashboard():
             atr = (high_prices - low_prices).mean()
             volatility = ((high_prices.max() - low_prices.min()) / price) * 100
             
-            # --- منطق تشخیص جهت معامله (Trend Detection) ---
             trend_direction = "Long" if change >= 0 else "Short"
             
-            # --- محاسبات هوشمند SL و TP بر اساس جهت معامله ---
             if trend_direction == "Long":
                 stop_loss = price - (atr * 1.5)
                 take_profit = price + (atr * 3.0)
@@ -57,7 +54,6 @@ def generate_dashboard():
                 stop_loss = price + (atr * 1.5)
                 take_profit = price - (atr * 3.0)
 
-            # --- تعیین وضعیت ورود ترکیبی ---
             if volatility < 8:
                 entry_status = f"Immediate {trend_direction} Entry"
                 status_class = "status-immediate" if trend_direction == "Long" else "status-short-immediate"
@@ -80,7 +76,7 @@ def generate_dashboard():
                 <div class="entry-box {status_class}">{entry_status}</div>
                 <div class="stats-grid">
                     <div class="stat-item"><span>نوسان:</span><span class="val">{volatility:.2f}%</span></div>
-                    <div class="stat-item"><span>قیمت فعلی:</span><span class="val">{price:,.2f}</span></div>
+                    <div class="stat-item"><span>قیمت:</span><span class="val">{price:,.2f}</span></div>
                     <div class="stat-item"><span>TP:</span><span class="val" style="color:#10b981">{take_profit:,.2f}</span></div>
                     <div class="stat-item"><span>SL:</span><span class="val" style="color:#ef4444">{stop_loss:,.2f}</span></div>
                 </div>
@@ -101,13 +97,11 @@ def generate_dashboard():
             .asset-header {{ display:flex; justify-content:space-between; font-size:11px; font-weight:bold; margin-bottom:4px; }}
             .asset-name {{ color:#b4b7bd; }}
             .asset-price {{ font-size:18px; font-weight:bold; margin-bottom:8px; text-align:left; }}
-            
             .entry-box {{ font-size:9px; padding:4px; border-radius:4px; text-align:center; margin-bottom:8px; font-weight:bold; text-transform: uppercase; }}
             .status-immediate {{ background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }}
             .status-short-immediate {{ background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }}
             .status-conditional {{ background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }}
             .status-none {{ background: rgba(107, 114, 128, 0.2); color: #9ca3af; border: 1px solid #4b5563; }}
-
             .stats-grid {{ display:grid; grid-template-columns: 1fr 1fr; gap:6px; border-top:1px solid #283046; padding-top:8px; }}
             .stat-item {{ display:flex; flex-direction:column; font-size:9px; }}
             .stat-item span {{ color:#676d7d; }}
@@ -117,8 +111,8 @@ def generate_dashboard():
     </head><meta http-equiv="refresh" content="1800">
     <body>
         <div class="header">
-            <h3 style="margin:0; color:#3b82f6;">Asia Intelligence Pro Dashboard V3 (Long/Short)</h3>
-            <div style="font-size:11px; color:#676d7d; margin-top:5px;">بروزرسانی (ملبورن): {now_time}</div>
+            <h3 style="margin:0; color:#3b82f6;">Asia Intelligence Pro Dashboard V3.1</h3>
+            <div style="font-size:11px; color:#676d7d; margin-top:5px;">بروزرسانی نهایی (ملبورن): {now_time}</div>
         </div>
         <div class="container">{cards_html}</div>
         <div class="chart-box" id="tv_chart_container"></div>
@@ -137,6 +131,6 @@ def generate_dashboard():
     </html>"""
 
     with open(HTML_FILE, "w", encoding="utf-8") as f: f.write(full_html)
-    print(f"✅ داشبورد با قیمت‌های جهانی همسان‌سازی شد. زمان: {now_time}")
+    print(f"✅ داشبورد با انطباق کامل قیمت‌ها و بازگشت داوجونز بروزرسانی شد. ساعت: {now_time}")
 
 if __name__ == "__main__": generate_dashboard()
