@@ -20,7 +20,7 @@ assets = {
     'DOWJONES': {'ticker': 'YM=F', 'tv_symbol': 'CAPITALCOM:US30'},
     'RTY2000': {'ticker': 'RTY=F', 'tv_symbol': 'OANDA:US2000USD'},
     'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'OANDA:AU200AUD'},
-    'CHINA50': {'ticker': 'XIN9.F', 'tv_symbol': 'FX_IDC:CHINAA50'}, # اصلاح شد: استفاده از فیوچرز A50 برای جلوگیری از خطا
+    'CHINA50': {'ticker': '000001.SS', 'tv_symbol': 'FX_IDC:CHINAA50'}, # اصلاح شد: استفاده از فیوچرز A50 برای جلوگیری از خطا
     'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'OANDA:JP225USD'},
     'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'}, # قیمت شاخص اصلی (حدود 24,000)
     'UK100': {'ticker': '^FTSE', 'tv_symbol': 'OANDA:UK100GBP'}
