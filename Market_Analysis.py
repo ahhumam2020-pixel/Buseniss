@@ -8,7 +8,7 @@ import os
 melbourne_tz = pytz.timezone('Australia/Melbourne')
 HTML_FILE = "index.html"
 
-# لیست اصلاح شده برای انطباق ۱۰۰٪ و جلوگیری از خطای ۴۰۴
+# لیست نهایی با اصلاح ویژه برای نمایش دقیق قیمت‌ها
 assets = {
     'BTC': {'ticker': 'BTC-USD', 'tv_symbol': 'BINANCE:BTCUSDT'},
     'ETH': {'ticker': 'ETH-USD', 'tv_symbol': 'BINANCE:ETHUSDT'},
@@ -20,9 +20,9 @@ assets = {
     'DOWJONES': {'ticker': 'YM=F', 'tv_symbol': 'CAPITALCOM:US30'},
     'RTY2000': {'ticker': 'RTY=F', 'tv_symbol': 'OANDA:US2000USD'},
     'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'OANDA:AU200AUD'},
-    'CHINA50': {'ticker': '000001.SS', 'tv_symbol': 'FX_IDC:CHINAA50'}, # اصلاح شد: استفاده از فیوچرز A50 برای جلوگیری از خطا
+    'CHINA50': {'ticker': '^FTXIN9', 'tv_symbol': 'SKILLING:CHINA50'}, # اصلاح: استفاده از شاخص نقدی برای قیمت ~15,000
     'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'OANDA:JP225USD'},
-    'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'}, # قیمت شاخص اصلی (حدود 24,000)
+    'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'},
     'UK100': {'ticker': '^FTSE', 'tv_symbol': 'OANDA:UK100GBP'}
 }
 
@@ -32,9 +32,12 @@ def generate_dashboard():
     
     for name, info in assets.items():
         try:
-            # دانلود داده‌ها با پارامتر نادیده گرفتن خطاها
+            # دانلود داده‌ها - استفاده از بازه 1 ساعته برای دقت نوسانات
             data = yf.download(info['ticker'], period="5d", interval="1h", progress=False)
-            if data.empty: continue
+            
+            if data.empty or len(data) < 2:
+                print(f"⚠️ داده‌ای برای {name} دریافت نشد.")
+                continue
             
             close_prices = data['Close'].values.flatten()
             price = float(close_prices[-1])
@@ -83,7 +86,7 @@ def generate_dashboard():
                 </div>
             </div>"""
         except Exception as e:
-            print(f"Error skipping {name}: {e}")
+            print(f"❌ خطا در پردازش {name}: {e}")
             continue
 
     full_html = f"""
@@ -114,8 +117,8 @@ def generate_dashboard():
     </head><meta http-equiv="refresh" content="1800">
     <body>
         <div class="header">
-            <h3 style="margin:0; color:#3b82f6;">Asia Intelligence Pro Dashboard V3.2</h3>
-            <div style="font-size:11px; color:#676d7d; margin-top:5px;">بروزرسانی نهایی (ملبورن): {now_time}</div>
+            <h3 style="margin:0; color:#3b82f6;">Asia Intelligence Pro Dashboard V3.3</h3>
+            <div style="font-size:11px; color:#676d7d; margin-top:5px;">بروزرسانی نهایی: {now_time}</div>
         </div>
         <div class="container">{cards_html}</div>
         <div class="chart-box" id="tv_chart_container"></div>
@@ -128,12 +131,13 @@ def generate_dashboard():
                     "enable_publishing": false, "hide_top_toolbar": false, "container_id": "tv_chart_container"
                 }});
             }}
-            changeChart('NQ=F');
+            // پیش‌فرض نمایش نزدک
+            changeChart('CAPITALCOM:US100');
         </script>
     </body>
     </html>"""
 
     with open(HTML_FILE, "w", encoding="utf-8") as f: f.write(full_html)
-    print(f"✅ داشبورد با موفقیت اصلاح شد. CHINA50 و GERMANY40 عیار گردیدند. ساعت: {now_time}")
+    print(f"✅ داشبورد با موفقیت کامل شد. CHINA50 اکنون با قیمت منطبق بر eToro نمایش می‌یابد. ساعت: {now_time}")
 
 if __name__ == "__main__": generate_dashboard()
