@@ -8,19 +8,19 @@ import os
 melbourne_tz = pytz.timezone('Australia/Melbourne')
 HTML_FILE = "index.html"
 
-# لیست نهایی با اصلاح ویژه برای نمایش دقیق قیمت‌ها
+# لیست نهایی با اصلاح نماد چین برای رفع خطای Delisted
 assets = {
     'BTC': {'ticker': 'BTC-USD', 'tv_symbol': 'BINANCE:BTCUSDT'},
     'ETH': {'ticker': 'ETH-USD', 'tv_symbol': 'BINANCE:ETHUSDT'},
     'GOLD': {'ticker': 'GC=F', 'tv_symbol': 'TVC:GOLD'},
     'SILVER': {'ticker': 'SI=F', 'tv_symbol': 'TVC:SILVER'},
     'CRUDE_OIL': {'ticker': 'CL=F', 'tv_symbol': 'TVC:USOIL'},
-    'NSDQ100': {'ticker': 'NQ=F', 'tv_symbol': 'CAPITALCOM:US100'},
+    'NSDQ100': {'ticker': 'NQ=F', 'tv_symbol': 'CME_MINI:NQ1!'},
     'SP500': {'ticker': 'ES=F', 'tv_symbol': 'CAPITALCOM:US500'},
     'DOWJONES': {'ticker': 'YM=F', 'tv_symbol': 'CAPITALCOM:US30'},
     'RTY2000': {'ticker': 'RTY=F', 'tv_symbol': 'OANDA:US2000USD'},
     'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'OANDA:AU200AUD'},
-    'CHINA50': {'ticker': '^FTXIN9', 'tv_symbol': 'SKILLING:CHINA50'}, # اصلاح: استفاده از شاخص نقدی برای قیمت ~15,000
+    'CHINA50': {'ticker': 'AZ=F', 'tv_symbol': 'FX_IDC:CHINAA50'}, # استفاده از AZ=F برای قیمت ~15,000
     'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'OANDA:JP225USD'},
     'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'},
     'UK100': {'ticker': '^FTSE', 'tv_symbol': 'OANDA:UK100GBP'}
@@ -32,7 +32,7 @@ def generate_dashboard():
     
     for name, info in assets.items():
         try:
-            # دانلود داده‌ها - استفاده از بازه 1 ساعته برای دقت نوسانات
+            # دانلود داده‌ها - بازه 1 ساعته
             data = yf.download(info['ticker'], period="5d", interval="1h", progress=False)
             
             if data.empty or len(data) < 2:
@@ -131,8 +131,8 @@ def generate_dashboard():
                     "enable_publishing": false, "hide_top_toolbar": false, "container_id": "tv_chart_container"
                 }});
             }}
-            // پیش‌فرض نمایش نزدک
-            changeChart('CAPITALCOM:US100');
+            // پیش‌فرض نمایش نزدک با نماد فیوچرز پایدار
+            changeChart('CME_MINI:NQ1!');
         </script>
     </body>
     </html>"""
