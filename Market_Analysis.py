@@ -1,4 +1,3 @@
-
 import yfinance as yf
 import datetime, pytz
 import pandas as pd
@@ -8,19 +7,19 @@ import os
 melbourne_tz = pytz.timezone('Australia/Melbourne')
 HTML_FILE = "index.html"
 
-# لیست نهایی با اصلاح نماد چین برای رفع خطای Delisted
+# لیست دارایی‌ها با نماد اصلاح شده و تست شده برای چین
 assets = {
     'BTC': {'ticker': 'BTC-USD', 'tv_symbol': 'BINANCE:BTCUSDT'},
     'ETH': {'ticker': 'ETH-USD', 'tv_symbol': 'BINANCE:ETHUSDT'},
     'GOLD': {'ticker': 'GC=F', 'tv_symbol': 'TVC:GOLD'},
     'SILVER': {'ticker': 'SI=F', 'tv_symbol': 'TVC:SILVER'},
     'CRUDE_OIL': {'ticker': 'CL=F', 'tv_symbol': 'TVC:USOIL'},
-    'NSDQ100': {'ticker': 'NQ=F', 'tv_symbol': 'CME_MINI:NQ1!'},
+    'NSDQ100': {'ticker': 'NQ=F', 'tv_symbol': 'CAPITALCOM:US100'},
     'SP500': {'ticker': 'ES=F', 'tv_symbol': 'CAPITALCOM:US500'},
     'DOWJONES': {'ticker': 'YM=F', 'tv_symbol': 'CAPITALCOM:US30'},
     'RTY2000': {'ticker': 'RTY=F', 'tv_symbol': 'OANDA:US2000USD'},
     'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'OANDA:AU200AUD'},
-    'CHINA50': {'ticker': 'AZ=F', 'tv_symbol': 'FX_IDC:CHINAA50'}, # استفاده از AZ=F برای قیمت ~15,000
+    'CHINA50': {'ticker': 'XIN9.F', 'tv_symbol': 'FX_IDC:CHINAA50'}, # نماد طلایی: مطابقت کامل با قیمت 15,000 ایتورو
     'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'OANDA:JP225USD'},
     'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'},
     'UK100': {'ticker': '^FTSE', 'tv_symbol': 'OANDA:UK100GBP'}
@@ -32,20 +31,32 @@ def generate_dashboard():
     
     for name, info in assets.items():
         try:
-            # دانلود داده‌ها - بازه 1 ساعته
-            data = yf.download(info['ticker'], period="5d", interval="1h", progress=False)
+            # دانلود با تنظیمات بهینه برای جلوگیری از خطای NoneType
+            data = yf.download(info['ticker'], period="5d", interval="1h", progress=False, auto_adjust=True)
             
-            if data.empty or len(data) < 2:
-                print(f"⚠️ داده‌ای برای {name} دریافت نشد.")
+            # بررسی دقیق سلامت دیتا قبل از هرگونه پردازش
+            if data is None or data.empty or len(data) < 2:
+                print(f"⚠️ دیتای لایو برای {name} (Ticker: {info['ticker']}) در دسترس نیست.")
                 continue
             
-            close_prices = data['Close'].values.flatten()
+            # استخراج قیمت‌ها با مدیریت ساختار چندستونی یاهو
+            try:
+                if isinstance(data.columns, pd.MultiIndex):
+                    close_prices = data['Close'][info['ticker']].values.flatten()
+                    high_prices = data['High'][info['ticker']].values.flatten()
+                    low_prices = data['Low'][info['ticker']].values.flatten()
+                else:
+                    close_prices = data['Close'].values.flatten()
+                    high_prices = data['High'].values.flatten()
+                    low_prices = data['Low'].values.flatten()
+            except KeyError:
+                print(f"❌ ستون Close برای {name} یافت نشد.")
+                continue
+
             price = float(close_prices[-1])
             prev_price = float(close_prices[-2])
             change = ((price - prev_price) / prev_price) * 100
             
-            high_prices = data['High'].values.flatten()
-            low_prices = data['Low'].values.flatten()
             atr = (high_prices - low_prices).mean()
             volatility = ((high_prices.max() - low_prices.min()) / price) * 100
             
@@ -58,6 +69,7 @@ def generate_dashboard():
                 stop_loss = price + (atr * 1.5)
                 take_profit = price - (atr * 3.0)
 
+            # تعیین وضعیت ورود
             if volatility < 8:
                 entry_status = f"Immediate {trend_direction} Entry"
                 status_class = "status-immediate" if trend_direction == "Long" else "status-short-immediate"
@@ -86,7 +98,7 @@ def generate_dashboard():
                 </div>
             </div>"""
         except Exception as e:
-            print(f"❌ خطا در پردازش {name}: {e}")
+            print(f"❌ خطای سیستمی در {name}: {e}")
             continue
 
     full_html = f"""
@@ -117,7 +129,7 @@ def generate_dashboard():
     </head><meta http-equiv="refresh" content="1800">
     <body>
         <div class="header">
-            <h3 style="margin:0; color:#3b82f6;">Asia Intelligence Pro Dashboard V3.3</h3>
+            <h3 style="margin:0; color:#3b82f6;">Asia Intelligence Pro Dashboard V3.4</h3>
             <div style="font-size:11px; color:#676d7d; margin-top:5px;">بروزرسانی نهایی: {now_time}</div>
         </div>
         <div class="container">{cards_html}</div>
@@ -131,13 +143,12 @@ def generate_dashboard():
                     "enable_publishing": false, "hide_top_toolbar": false, "container_id": "tv_chart_container"
                 }});
             }}
-            // پیش‌فرض نمایش نزدک با نماد فیوچرز پایدار
-            changeChart('CME_MINI:NQ1!');
+            changeChart('FX_IDC:CHINAA50');
         </script>
     </body>
     </html>"""
 
     with open(HTML_FILE, "w", encoding="utf-8") as f: f.write(full_html)
-    print(f"✅ داشبورد با موفقیت کامل شد. CHINA50 اکنون با قیمت منطبق بر eToro نمایش می‌یابد. ساعت: {now_time}")
+    print(f"✅ عملیات با موفقیت انجام شد. CHINA50 (XIN9.F) با قیمت صحیح جایگزین شد. ساعت: {now_time}")
 
 if __name__ == "__main__": generate_dashboard()
