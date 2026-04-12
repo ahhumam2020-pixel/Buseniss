@@ -19,7 +19,7 @@ assets = {
     'DOWJONES': {'ticker': 'YM=F', 'tv_symbol': 'CAPITALCOM:US30'},
     'RTY2000': {'ticker': 'RTY=F', 'tv_symbol': 'OANDA:US2000USD'},
     'AUS200': {'ticker': '^AXJO', 'tv_symbol': 'OANDA:AU200AUD'},
-    'CHINA50': {'ticker': 'XIN9.F', 'tv_symbol': 'FX_IDC:CHINAA50'}, # نماد طلایی: مطابقت کامل با قیمت 15,000 ایتورو
+    'CHINA50': {'ticker': 'XIN9.FGI', 'tv_symbol': 'FX_IDC:CHINAA50'},
     'HKG50': {'ticker': '^HSI', 'tv_symbol': 'OANDA:HK33HKD'}, # شاخص Hang Seng هنگ‌کنگ — مطابقت با قیمت ~25,932 ایتورو
     'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'OANDA:JP225USD'},
     'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'},
