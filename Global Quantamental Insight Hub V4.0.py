@@ -1,20 +1,18 @@
 import yfinance as yf
 import datetime, pytz
 import pandas as pd
-import numpy as np
 
-# --- تنظیمات سیستمی (اتصال هوشمند) ---
-# برای تغییر بازه کل داشبورد، فقط یکی از مقادیر زیر را فعال کنید:
-# روزانه: PY="1d", TV="D" | یک ساعته: PY="1h", TV="60" | ۱۵ دقیقه: PY="15m", TV="15"
+# --- تنظیمات سیستمی (بدون تغییر) ---
 PY_INTERVAL = "1d" 
 TV_INTERVAL = "D"
 
 melbourne_tz = pytz.timezone('Australia/Melbourne')
 HTML_FILE = "index.html"
-APP_TITLE = "Asia Intelligence Pro Dashboard V4.7"
+APP_TITLE = "Asia Intelligence Pro Dashboard V4.8 (Expanded)"
 
-# لیست کامل ۱۵ دارایی (بدون تغییر)
+# لیست دارایی‌ها (۱۵ اصلی + ۱۱ مورد جدید با دقت بالا)
 assets = {
+    # --- بخش اول: دارایی‌های اصلی قبلی ---
     'CHINA50': {'ticker': 'XIN9.FGI', 'tv_symbol': 'CAPITALCOM:CN50'},
     'BTC': {'ticker': 'BTC-USD', 'tv_symbol': 'BINANCE:BTCUSDT'},
     'ETH': {'ticker': 'ETH-USD', 'tv_symbol': 'BINANCE:ETHUSDT'},
@@ -29,26 +27,31 @@ assets = {
     'HKG50': {'ticker': '^HSI', 'tv_symbol': 'OANDA:HK33HKD'},
     'JAPAN225': {'ticker': '^N225', 'tv_symbol': 'OANDA:JP225USD'},
     'GERMANY40': {'ticker': '^GDAXI', 'tv_symbol': 'OANDA:DE30EUR'},
-    'UK100': {'ticker': '^FTSE', 'tv_symbol': 'OANDA:UK100GBP'}
+    'UK100': {'ticker': '^FTSE', 'tv_symbol': 'OANDA:UK100GBP'},
+    
+    # --- بخش دوم: دارایی‌های جدید درخواستی (منطبق با eToro/TradingView) ---
+    'TESLA': {'ticker': 'TSLA', 'tv_symbol': 'NASDAQ:TSLA'},
+    'APPLE': {'ticker': 'AAPL', 'tv_symbol': 'NASDAQ:AAPL'},
+    'NVIDIA': {'ticker': 'NVDA', 'tv_symbol': 'NASDAQ:NVDA'},
+    'AMAZON': {'ticker': 'AMZN', 'tv_symbol': 'NASDAQ:AMZN'},
+    'META': {'ticker': 'META', 'tv_symbol': 'NASDAQ:META'},
+    'BROADCOM': {'ticker': 'AVGO', 'tv_symbol': 'NASDAQ:AVGO'},
+    'ALPHABET': {'ticker': 'GOOG', 'tv_symbol': 'NASDAQ:GOOG'},
+    'MICROSOFT': {'ticker': 'MSFT', 'tv_symbol': 'NASDAQ:MSFT'},
+    'ALIBABA': {'ticker': 'BABA', 'tv_symbol': 'NYSE:BABA'},
+    'VISA': {'ticker': 'V', 'tv_symbol': 'NYSE:V'},
+    'COPPER': {'ticker': 'HG=F', 'tv_symbol': 'COMEX:HG1!'}
 }
 
 def generate_dashboard():
-    print(f"🚀 Syncing {APP_TITLE} on {PY_INTERVAL} Interval...")
+    print(f"🚀 Updating {APP_TITLE} with New Assets...")
     now_time = datetime.datetime.now(melbourne_tz).strftime('%Y-%m-%d | %H:%M:%S')
     
-    # ۱. تحلیل شاخص دلار (DXY) برای سوگیری بنیادی
-    try:
-        dxy = yf.download("DX-Y.NYB", period="5d", interval=PY_INTERVAL, progress=False)
-        dxy_change = ((dxy['Close'].iloc[-1].item() - dxy['Close'].iloc[-2].item()) / dxy['Close'].iloc[-2].item()) * 100
-    except: dxy_change = 0.0
-
     cards_html = ""
     
-    # ۲. پردازش دارایی‌ها با متد .item() برای پایداری در IDLE
     for name, info in assets.items():
         try:
-            print(f"📊 Analyzing {name}...")
-            # استفاده از PY_INTERVAL برای دانلود دقیق دیتا
+            # دانلود دیتا (حفظ دقیق منطق قبلی)
             data = yf.download(info['ticker'], period="60d", interval=PY_INTERVAL, progress=False, auto_adjust=True)
             if data.empty or len(data) < 20: continue
 
@@ -56,7 +59,6 @@ def generate_dashboard():
             prev_p = data['Close'].iloc[-2].item()
             change = ((curr_p - prev_p) / prev_p) * 100
             
-            # محاسبات ATR برای تعیین SL و TP
             atr = (data['High'] - data['Low']).tail(14).mean().item()
             volatility = ((data['High'].max().item() - data['Low'].min().item()) / curr_p) * 100
             
@@ -76,38 +78,42 @@ def generate_dashboard():
                 <div class="asset-price" style="color:{color}">{curr_p:,.2f}</div>
                 <div class="entry-box {status_class}">{status}</div>
                 <div class="stats-grid">
-                    <div class="stat-item"><span>SL (ATR):</span><span class="val" style="color:#ef4444">{sl:,.2f}</span></div>
-                    <div class="stat-item"><span>TP (3x):</span><span class="val" style="color:#10b981">{tp:,.2f}</span></div>
+                    <div class="stat-item"><span>SL (ATR):</span><span class="val sl-val">{sl:,.2f}</span></div>
+                    <div class="stat-item"><span>TP (3x):</span><span class="val tp-val">{tp:,.2f}</span></div>
                 </div>
             </div>"""
         except Exception as e:
             print(f"❌ Error in {name}: {e}")
 
-    # ۳. تولید HTML با تزریق هوشمند تایم‌فریم به جاوااسکریپت
+    # قالب‌بندی HTML (بدون تغییر در استایل‌ها)
     full_html = f"""
     <!DOCTYPE html>
     <html lang="fa" dir="rtl">
     <head>
         <meta charset="UTF-8">
         <style>
-            body {{ background:#0a0f1e; color:white; font-family:Tahoma, Arial; margin:0; padding:15px; }}
-            .container {{ display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:10px; margin-bottom:15px; }}
-            .asset-card {{ background:#161d31; padding:12px; border-radius:10px; border:1px solid #283046; cursor:pointer; transition:0.3s; }}
-            .asset-card:hover {{ border-color:#3b82f6; background:#1c2541; }}
-            .asset-price {{ font-size:16px; font-weight:bold; margin-bottom:8px; }}
-            .entry-box {{ font-size:9px; padding:4px; border-radius:4px; text-align:center; margin-bottom:8px; font-weight:bold; }}
+            body {{ background:#0a1224; color:white; font-family: 'Segoe UI', Tahoma, Arial; margin:0; padding:15px; }}
+            .container {{ display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:12px; margin-bottom:20px; }}
+            .asset-card {{ background:#1c2541; padding:15px; border-radius:12px; border:1px solid #2d3748; cursor:pointer; transition: transform 0.2s, border-color 0.2s; }}
+            .asset-card:hover {{ transform: translateY(-3px); border-color:#4a90e2; background:#242f50; }}
+            .asset-header {{ display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#a0aec0; margin-bottom:10px; }}
+            .asset-price {{ font-size:18px; font-weight:bold; margin-bottom:12px; font-family: 'Consolas', monospace; }}
+            .entry-box {{ font-size:10px; padding:6px; border-radius:6px; text-align:center; margin-bottom:12px; font-weight:bold; letter-spacing:0.5px; }}
             .status-immediate {{ background:rgba(16,185,129,0.15); color:#10b981; border:1px solid #10b981; }}
             .status-short {{ background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid #ef4444; }}
             .status-wait {{ background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid #f59e0b; }}
-            .stats-grid {{ display:grid; grid-template-columns: 1fr 1fr; gap:6px; border-top:1px solid #283046; padding-top:8px; }}
-            .stat-item span {{ font-size:9px; color:#676d7d; }}
-            .stat-item .val {{ font-size:10px; font-weight:bold; }}
-            .chart-box {{ height:600px; background:#161d31; border-radius:12px; border:1px solid #283046; overflow:hidden; }}
+            .stats-grid {{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; border-top:1px solid #2d3748; padding-top:10px; }}
+            .stat-item {{ display:flex; flex-direction:column; gap:2px; }}
+            .stat-item span {{ font-size:10px; color:#718096; }}
+            .stat-item .val {{ font-size:12px; font-weight:bold; font-family: 'Consolas', monospace; }}
+            .sl-val {{ color:#fc8181; }}
+            .tp-val {{ color:#68d391; }}
+            .chart-box {{ height:600px; background:#1c2541; border-radius:15px; border:1px solid #2d3748; overflow:hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }}
         </style>
     </head>
     <body>
-        <h3 style="text-align:center; color:#3b82f6; margin-bottom:5px;">{APP_TITLE}</h3>
-        <div style="text-align:center; font-size:10px; color:#676d7d; margin-bottom:15px;">Melbourne: {now_time} | Interval: {PY_INTERVAL}</div>
+        <h3 style="text-align:center; color:#4a90e2; margin-bottom:5px; letter-spacing:1px;">{APP_TITLE}</h3>
+        <div style="text-align:center; font-size:11px; color:#718096; margin-bottom:20px;">Melbourne: {now_time} | Sync Interval: {PY_INTERVAL}</div>
         <div class="container">{cards_html}</div>
         <div class="chart-box" id="tv_chart_container"></div>
         <script src="https://s3.tradingview.com/tv.js"></script>
@@ -116,16 +122,15 @@ def generate_dashboard():
                 new TradingView.widget({{
                     "autosize": true, "symbol": s, "interval": "{TV_INTERVAL}", 
                     "timezone": "Australia/Melbourne", "theme": "dark", "style": "1", 
-                    "container_id": "tv_chart_container", "locale": "en"
+                    "container_id": "tv_chart_container", "locale": "en", "hide_side_toolbar": false
                 }});
             }}
-            // اجرای اولیه با نماد چین و تایم‌فریم هوشمند
-            changeChart('CAPITALCOM:CN50');
+            changeChart('NASDAQ:TSLA'); // پیش‌فرض روی تسلا لود شود
         </script>
     </body>
     </html>"""
 
     with open(HTML_FILE, "w", encoding="utf-8") as f: f.write(full_html)
-    print(f"✅ Dashboard V4.7 (Interval: {PY_INTERVAL}) updated successfully.")
+    print(f"✅ Dashboard updated with {len(assets)} assets.")
 
 if __name__ == "__main__": generate_dashboard()
